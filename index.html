@@ -375,6 +375,7 @@
 
 <canvas id="stars-canvas"></canvas>
 <div id="toast"></div>
+<input type="file" id="photo-input" accept="image/*" capture="user" style="display:none">
 
 <div id="modal-overlay">
   <div id="modal-box">
@@ -590,8 +591,11 @@ function runSequential(list, perPlayerFn, onComplete, acc) {
 }
 
 /* ===================== SETUP ===================== */
+/* Normalizes old localStorage data (plain name strings) into {name, photo} objects. */
+function normalizeNameEntry(x) { return typeof x === 'string' ? {name:x, photo:null} : x; }
+
 function loadSavedPlayers() {
-  try { return JSON.parse(localStorage.getItem('traitres_players') || '[]'); } catch(e) { return []; }
+  try { return JSON.parse(localStorage.getItem('traitres_players') || '[]').map(normalizeNameEntry); } catch(e) { return []; }
 }
 function savePlayers() {
   try { localStorage.setItem('traitres_players', JSON.stringify(setupPlayers)); } catch(e) {}
@@ -600,12 +604,12 @@ let setupPlayers = loadSavedPlayers();
 
 /* Persistent pool of every name ever typed, independent of the current
    game's active roster — powers the "ajout rapide" one-tap shortcuts. */
-const DEFAULT_KNOWN_NAMES = ['Ariana','David','Flavio','Inès','Jennifer','Kévan','Lana','Mila','Nicolas','Rémi','Tara'];
+const DEFAULT_KNOWN_NAMES = ['Ariana','David','Flavio','Inès','Jennifer','Kévan','Lana','Mila','Nicolas','Rémi','Tara'].map(n=>({name:n, photo:null}));
 function loadKnownNames() {
   try {
     const raw = localStorage.getItem('traitres_known_names');
     if (raw === null) return DEFAULT_KNOWN_NAMES.slice();
-    return JSON.parse(raw);
+    return JSON.parse(raw).map(normalizeNameEntry);
   } catch(e) { return DEFAULT_KNOWN_NAMES.slice(); }
 }
 function saveKnownNames() {
@@ -613,12 +617,72 @@ function saveKnownNames() {
 }
 let knownNames = loadKnownNames();
 
+/* ---- avatar rendering helpers (shared by setup chips, table, reveal, end screen) ---- */
+function avatarAttrs(p) {
+  return p.photo ? ` style="background-image:url('${p.photo}');background-size:cover;background-position:center;color:transparent"` : '';
+}
+function avatarContent(p) { return p.photo ? '' : initials(p.name); }
+function bigAvatarHTML(p, px) {
+  px = px || 120;
+  const common = `width:${px}px;height:${px}px;border-radius:50%;margin:0 auto 1rem;border:3px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-size:${Math.round(px*0.35)}px;color:var(--gold);background:rgba(255,255,255,0.08);`;
+  if (p.photo) return `<div style="${common}background-image:url('${p.photo}');background-size:cover;background-position:center"></div>`;
+  return `<div style="${common}">${initials(p.name)}</div>`;
+}
+
+/* ---- photo capture (device camera) ---- */
+let pendingPhotoTarget = null; // {kind:'setup', index} | {kind:'known', name}
+function triggerPhotoCapture(kind, key) {
+  pendingPhotoTarget = {kind, key};
+  document.getElementById('photo-input').click();
+}
+function handlePhotoSelected(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file || !pendingPhotoTarget) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      const size = 200;
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const s = Math.min(img.width, img.height);
+      ctx.drawImage(img, (img.width-s)/2, (img.height-s)/2, s, s, 0, 0, size, size);
+      applyPhoto(canvas.toDataURL('image/jpeg', 0.75));
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+document.getElementById('photo-input').addEventListener('change', handlePhotoSelected);
+
+function applyPhoto(dataUrl) {
+  const {kind, key} = pendingPhotoTarget;
+  pendingPhotoTarget = null;
+  if (kind === 'setup') {
+    const p = setupPlayers[key];
+    if (!p) return;
+    p.photo = dataUrl;
+    const kn = knownNames.find(n => n.name === p.name);
+    if (kn) kn.photo = dataUrl; else knownNames.push({name:p.name, photo:dataUrl});
+    saveKnownNames();
+    savePlayers();
+  } else {
+    const kn = knownNames.find(n => n.name === key);
+    if (kn) kn.photo = dataUrl;
+    saveKnownNames();
+  }
+  renderChips();
+}
+
 function addPlayer() {
   const inp = document.getElementById('name-input');
   const name = inp.value.trim();
-  if (!name || setupPlayers.includes(name) || setupPlayers.length >= 8) { inp.value=''; return; }
-  setupPlayers.push(name);
-  if (!knownNames.includes(name)) { knownNames.push(name); saveKnownNames(); }
+  if (!name || setupPlayers.some(p=>p.name===name) || setupPlayers.length >= 8) { inp.value=''; return; }
+  const known = knownNames.find(n => n.name === name);
+  setupPlayers.push({name, photo: known ? known.photo : null});
+  if (!known) { knownNames.push({name, photo:null}); saveKnownNames(); }
   inp.value = '';
   renderChips();
   savePlayers();
@@ -626,15 +690,16 @@ function addPlayer() {
 }
 document.getElementById('name-input').addEventListener('keydown', e => { if (e.key==='Enter') addPlayer(); });
 
-function quickAddName(name) {
-  if (setupPlayers.includes(name) || setupPlayers.length >= 8) return;
-  setupPlayers.push(name);
+function quickAddKnown(name) {
+  if (setupPlayers.some(p=>p.name===name) || setupPlayers.length >= 8) return;
+  const known = knownNames.find(n => n.name === name);
+  setupPlayers.push({name, photo: known ? known.photo : null});
   renderChips();
   savePlayers();
 }
 
 function forgetKnownName(name) {
-  knownNames = knownNames.filter(n => n !== name);
+  knownNames = knownNames.filter(n => n.name !== name);
   saveKnownNames();
   renderChips();
 }
@@ -645,7 +710,8 @@ function renderChips() {
   document.getElementById('chips-container').innerHTML =
     setupPlayers.map((p,i) => `
       <span class="player-chip">
-        <span class="av">${initials(p)}</span>${p}
+        <span class="av"${avatarAttrs(p)}>${avatarContent(p)}</span>${p.name}
+        <button class="chip-remove" onclick="triggerPhotoCapture('setup',${i})" title="Prendre une photo">📷</button>
         <button class="chip-remove" onclick="removePlayer(${i})">×</button>
       </span>`).join('');
   const n = setupPlayers.length;
@@ -660,13 +726,14 @@ function renderChips() {
 
 function renderKnownNames() {
   const panel = document.getElementById('known-names-panel');
-  const available = knownNames.filter(n => !setupPlayers.includes(n)).sort((a,b)=>a.localeCompare(b,'fr'));
+  const available = knownNames.filter(n => !setupPlayers.some(p=>p.name===n.name)).sort((a,b)=>a.name.localeCompare(b.name,'fr'));
   if (available.length === 0) { panel.style.display = 'none'; return; }
   panel.style.display = 'block';
   document.getElementById('known-names-list').innerHTML = available.map(n => `
-    <span class="player-chip" style="cursor:pointer" onclick="quickAddName('${n.replace(/'/g,"\\'")}')">
-      <span class="av">${initials(n)}</span>${n}
-      <button class="chip-remove" onclick="event.stopPropagation();forgetKnownName('${n.replace(/'/g,"\\'")}')" title="Oublier ce prénom">×</button>
+    <span class="player-chip" style="cursor:pointer" onclick="quickAddKnown('${n.name.replace(/'/g,"\\'")}')">
+      <span class="av"${avatarAttrs(n)}>${avatarContent(n)}</span>${n.name}
+      <button class="chip-remove" onclick="event.stopPropagation();triggerPhotoCapture('known','${n.name.replace(/'/g,"\\'")}')" title="Prendre une photo">📷</button>
+      <button class="chip-remove" onclick="event.stopPropagation();forgetKnownName('${n.name.replace(/'/g,"\\'")}')" title="Oublier ce prénom">×</button>
     </span>`).join('');
 }
 
@@ -682,7 +749,7 @@ function beginRound() {
   if (n < 4 || n > 8) { document.getElementById('warn-min').classList.add('show'); return; }
   document.getElementById('warn-min').classList.remove('show');
   G = {
-    players: setupPlayers.map((name,i) => ({ id:i, name }))
+    players: setupPlayers.map((p,i) => ({ id:i, name:p.name, photo:p.photo }))
   };
   startRound();
 }
@@ -715,7 +782,7 @@ function cardLabel(c) {
 function buildRevealStatusList() {
   document.getElementById('reveal-status-list').innerHTML = G.players.map((p,idx) => `
     <div class="player-live-row">
-      <div class="av2 unknown">${initials(p.name)}</div>
+      <div class="av2 unknown"${avatarAttrs(p)}>${avatarContent(p)}</div>
       <div class="plr-name">${p.name}</div>
       <div class="lock-badge" id="reveal-badge-${idx}">en attente</div>
     </div>`).join('');
@@ -840,7 +907,7 @@ function renderTable() {
       badge = `<span class="plr-badge ${p.role===ROLE_TRAITRE?'badge-t':'badge-f'}">${p.role===ROLE_TRAITRE?'Traître':'Loyal'}</span> <span class="plr-badge badge-d">Éliminé</span>`;
     }
     return `<div class="player-live-row ${p.alive?'':'eliminated'}${isCur?' current':''}">
-      <div class="av2 ${av}">${initials(p.name)}</div>
+      <div class="av2 ${av}"${avatarAttrs(p)}>${avatarContent(p)}</div>
       <div>
         <div class="plr-name">${p.name}${isCur?' 👈 à son tour':''}</div>
         ${p.alive ? `<div class="plr-sub">${p.hand.length} carte(s) en main</div>` : ''}
@@ -1145,7 +1212,7 @@ function assassinatOutcome(drawer, victim) {
   const shieldIdx = victim.hand.findIndex(c=>c.type==='bouclier');
   if (shieldIdx === -1) {
     eliminatePlayer(victim);
-    openModal('☠️ Élimination', `<p><b>${victim.name}</b> n'avait pas de Bouclier en main. Rôle révélé : <b style="color:${victim.role===ROLE_TRAITRE?'#ff7675':'#74b9ff'}">${victim.role===ROLE_TRAITRE?'TRAÎTRE':'LOYAL'}</b>. Ses Lingots d'argent rejoignent la cagnotte commune.</p>`,
+    openModal('☠️ Élimination', `<div style="text-align:center">${bigAvatarHTML(victim)}<h2 style="margin:0 0 0.5rem">${victim.name}</h2></div><p><b>${victim.name}</b> n'avait pas de Bouclier en main. Rôle révélé : <b style="color:${victim.role===ROLE_TRAITRE?'#ff7675':'#74b9ff'}">${victim.role===ROLE_TRAITRE?'TRAÎTRE':'LOYAL'}</b>. Ses Lingots d'argent rejoignent la cagnotte commune.</p>`,
       [{label:'Continuer', action:()=>{ closeModal(); continueAfterEvent(drawer, victim.id===drawer.id); }}]);
     return;
   }
@@ -1161,7 +1228,7 @@ function assassinatOutcome(drawer, victim) {
     {label:"Non — je suis éliminé(e)", danger:true, action:()=>{
       eliminatePlayer(victim);
       closeModal();
-      openModal('☠️ Élimination', `<p><b>${victim.name}</b> révèle sa carte Rôle : <b style="color:${victim.role===ROLE_TRAITRE?'#ff7675':'#74b9ff'}">${victim.role===ROLE_TRAITRE?'TRAÎTRE':'LOYAL'}</b>. Ses Lingots d'argent en main rejoignent la cagnotte commune.</p>`,
+      openModal('☠️ Élimination', `<div style="text-align:center">${bigAvatarHTML(victim)}<h2 style="margin:0 0 0.5rem">${victim.name}</h2></div><p><b>${victim.name}</b> révèle sa carte Rôle : <b style="color:${victim.role===ROLE_TRAITRE?'#ff7675':'#74b9ff'}">${victim.role===ROLE_TRAITRE?'TRAÎTRE':'LOYAL'}</b>. Ses Lingots d'argent en main rejoignent la cagnotte commune.</p>`,
         [{label:'Continuer', action:()=>{ closeModal(); continueAfterEvent(drawer, victim.id===drawer.id); }}]);
     }}
   ]);
@@ -1222,7 +1289,7 @@ function tallyBanVote(drawer, candidates, votes, isFinal) {
 function banishOutcome(drawer, banished, isFinal) {
   eliminatePlayer(banished);
   const wasTraitre = banished.role === ROLE_TRAITRE;
-  openModal('Bannissement', `<p><b>${banished.name}</b> était <b style="color:${wasTraitre?'#ff7675':'#74b9ff'}">${wasTraitre?'TRAÎTRE':'LOYAL'}</b> ! Ses Lingots d'argent en main rejoignent la cagnotte commune.</p>`,
+  openModal('Bannissement', `<div style="text-align:center">${bigAvatarHTML(banished)}<h2 style="margin:0 0 0.5rem">${banished.name}</h2></div><p><b>${banished.name}</b> était <b style="color:${wasTraitre?'#ff7675':'#74b9ff'}">${wasTraitre?'TRAÎTRE':'LOYAL'}</b> ! Ses Lingots d'argent en main rejoignent la cagnotte commune.</p>`,
     [{label: isFinal ? 'Voir les résultats' : 'Continuer', action:()=>{
       closeModal();
       if (isFinal) { finishRound(); return; }
@@ -1257,15 +1324,16 @@ function finishRound() {
 
   const resDiv = document.getElementById('roundend-result');
   resDiv.className = 'result-glow ' + (outcomeTraitor ? 'result-traitor' : 'result-faithful');
+  const winnerPhotos = `<div style="display:flex;justify-content:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem">${winners.map(p=>`<div>${bigAvatarHTML(p,96)}<div style="text-align:center;font-family:'Cinzel',serif;color:var(--gold)">${p.name}</div></div>`).join('')}</div>`;
   resDiv.innerHTML = outcomeTraitor
-    ? `<div style="font-size:2.4rem;margin-bottom:0.5rem">🎭</div><h2>Il reste des Traîtres en vie !</h2><p style="color:var(--text-muted)">${traitorsAlive.map(p=>p.name).join(', ')} — ${traitorsAlive.length>1?'ils raflent':'il/elle rafle'} toute la cagnotte (${potTotal} lingot(s)).</p>`
-    : `<div style="font-size:2.4rem;margin-bottom:0.5rem">🛡️</div><h2>Tous les Traîtres ont été démasqués !</h2><p style="color:var(--text-muted)">Les Loyaux survivants se partagent équitablement la cagnotte (${potTotal} lingot(s)).</p>`;
+    ? `${winnerPhotos}<h2>Il reste des Traîtres en vie !</h2><p style="color:var(--text-muted)">${traitorsAlive.map(p=>p.name).join(', ')} — ${traitorsAlive.length>1?'ils raflent':'il/elle rafle'} toute la cagnotte (${potTotal} lingot(s)).</p>`
+    : `${winnerPhotos}<h2>Tous les Traîtres ont été démasqués !</h2><p style="color:var(--text-muted)">Les Loyaux survivants se partagent équitablement la cagnotte (${potTotal} lingot(s)).</p>`;
 
   const ranked = G.players.slice().sort((a,b)=>b.finalScore-a.finalScore);
   document.getElementById('roundend-table').innerHTML = ranked.map((p,i) => {
     const dead = !p.alive;
     return `<div class="player-live-row${dead?' eliminated':''}">
-      <div class="av2 ${p.role===ROLE_TRAITRE?'traitor':'faithful'}">${i+1}</div>
+      <div class="av2 ${p.role===ROLE_TRAITRE?'traitor':'faithful'}"${avatarAttrs(p)}>${avatarContent(p)}</div>
       <div>
         <div class="plr-name">${i===0?'👑 ':''}${p.name}</div>
         <div class="plr-sub">${dead?'Éliminé(e)':'Survivant(e)'} · ${p.finalScore} lingot(s)</div>
