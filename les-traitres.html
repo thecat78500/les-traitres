@@ -2,7 +2,13 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Les Traîtres">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0a12">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='180' height='180' fill='%230a0a12'/%3E%3Ctext x='50%25' y='58%25' font-size='100' text-anchor='middle' dominant-baseline='middle'%3E%F0%9F%8E%AD%3C/text%3E%3C/svg%3E">
 <title>Les Traîtres — Compagnon de jeu</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Lato:wght@300;400;700&display=swap');
@@ -19,14 +25,36 @@
     --text-muted: #9a8f7e;
   }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  * {
+    box-sizing: border-box; margin: 0; padding: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior-y: none;
+  }
 
   body {
     background: var(--dark);
     color: var(--text);
     font-family: 'Lato', sans-serif;
     min-height: 100vh;
+    min-height: 100dvh;
     overflow-x: hidden;
+    overscroll-behavior-y: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  input, textarea {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  button, .btn, .chip-remove, [onclick] {
+    touch-action: manipulation;
   }
 
   #stars-canvas {
@@ -48,8 +76,9 @@
   #app {
     position: relative; z-index: 2;
     max-width: 860px; margin: 0 auto;
-    padding: 1.5rem 1rem 4rem;
+    padding: calc(1.5rem + env(safe-area-inset-top)) calc(1rem + env(safe-area-inset-right)) calc(4rem + env(safe-area-inset-bottom)) calc(1rem + env(safe-area-inset-left));
     min-height: 100vh;
+    min-height: 100dvh;
   }
 
   .screen { display: none; animation: fadeIn 0.6s ease; }
@@ -145,8 +174,8 @@
   }
   .chip-remove {
     background: none; border: none; color: var(--text-muted);
-    cursor: pointer; font-size: 1rem; line-height: 1;
-    padding: 0 2px; transition: color 0.2s;
+    cursor: pointer; font-size: 1.1rem; line-height: 1;
+    padding: 10px; margin: -10px -8px -10px 2px; transition: color 0.2s;
   }
   .chip-remove:hover { color: var(--traitor-color); }
 
@@ -276,7 +305,7 @@
   .log-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: var(--gold); }
 
   #toast {
-    position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(80px);
+    position: fixed; bottom: calc(2rem + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%) translateY(80px);
     background: rgba(10,10,20,0.95); border: 1px solid var(--gold);
     color: var(--text); padding: 0.75rem 1.5rem; border-radius: 8px;
     font-size: 0.9rem; z-index: 9999; transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
@@ -287,7 +316,8 @@
   #modal-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.9);
     z-index: 500; display: flex; align-items: center; justify-content: center;
-    opacity: 0; pointer-events: none; transition: opacity 0.3s; padding: 1rem;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    padding: calc(1rem + env(safe-area-inset-top)) calc(1rem + env(safe-area-inset-right)) calc(1rem + env(safe-area-inset-bottom)) calc(1rem + env(safe-area-inset-left));
   }
   #modal-overlay.open { opacity: 1; pointer-events: all; }
   #modal-box {
@@ -331,10 +361,12 @@
   .hint { font-size: 0.8rem; color: var(--text-muted); margin-top: 6px; }
 
   #global-reset-btn {
-    position: fixed; top: 12px; right: 12px; z-index: 400;
+    position: fixed; z-index: 400;
+    top: calc(12px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right));
     background: rgba(10,10,20,0.85); border: 1px solid rgba(192,57,43,0.4);
     color: var(--text-muted); font-family: 'Lato', sans-serif; font-size: 0.75rem;
-    padding: 6px 12px; border-radius: 20px; cursor: pointer; transition: all 0.2s;
+    padding: 10px 14px; border-radius: 20px; cursor: pointer; transition: all 0.2s;
+    touch-action: manipulation;
   }
   #global-reset-btn:hover { border-color: var(--traitor-color); color: #ff7675; }
 </style>
@@ -623,11 +655,12 @@ function startRound() {
 
 function logEvent(text) { S.log.push(text); }
 
-const CARD_ICON = { lingot:'🪙', bouclier:'🛡️', poignard:'🗡️' };
+const CARD_ICON = { lingot:'🪙', bouclier:'🛡️', poignard:'🗡️', traitre_marker:'🎭' };
 function cardLabel(c) {
   if (c.type==='lingot') return `Lingot d'argent (valeur ${c.value})`;
   if (c.type==='bouclier') return 'Bouclier';
   if (c.type==='poignard') return 'Poignard';
+  if (c.type==='traitre_marker') return 'Carte Traître (gardée en secret)';
   return c.type;
 }
 
@@ -810,6 +843,9 @@ function addToHand(p, card) {
 function handTurnOptions(p) {
   if (p.hand.length === 0) return afterHandStep(p);
   const rows = p.hand.map((c,i) => {
+    if (c.type==='traitre_marker') {
+      return `<div class="hand-card"><span class="hc-icon">${CARD_ICON[c.type]}</span><span class="hc-label">${cardLabel(c)}</span><span style="font-size:0.7rem;color:var(--text-muted)">ne peut être ni jouée ni défaussée</span></div>`;
+    }
     let action = '';
     if (c.type==='lingot') action = `<button class="hc-btn" onclick="playLingot(${p.id},${i})">Jouer dans la cagnotte</button>`;
     else if (c.type==='poignard') action = `<button class="hc-btn" onclick="playPoignard(${p.id},${i})">Faire chanter</button>`;
@@ -860,7 +896,7 @@ function blackmailReveal(p, target) {
     return;
   }
   const rows = target.hand.map((c,i)=>`<div class="hand-card"><span class="hc-icon">${CARD_ICON[c.type]}</span><span class="hc-label">${cardLabel(c)}</span>
-    <button class="hc-btn" onclick="blackmailTake(${p.id},${target.id},${i})">Prendre</button></div>`).join('');
+    ${c.type==='traitre_marker' ? '<span style="font-size:0.7rem;color:var(--text-muted)">ne peut pas être prise</span>' : `<button class="hc-btn" onclick="blackmailTake(${p.id},${target.id},${i})">Prendre</button>`}</div>`).join('');
   openModal(`Main de ${target.name} (secret)`,
     `<p style="color:var(--text-muted)">Vous seul(e) voyez ceci. Vous pouvez prendre une carte, ou repartir les mains vides.</p>${rows}`,
     [{label:'Ne rien prendre', action:()=>{ closeModal(); logEvent(`${p.name} a fait chanter ${target.name}.`); afterHandStep(p); }}]
@@ -898,7 +934,7 @@ function afterHandStep(p) {
 
 function discardStep(p) {
   const rows = p.hand.map((c,i)=>`<div class="hand-card"><span class="hc-icon">${CARD_ICON[c.type]}</span><span class="hc-label">${cardLabel(c)}</span>
-    <button class="hc-btn" onclick="discardCard(${p.id},${i})">Défausser</button></div>`).join('');
+    ${c.type==='traitre_marker' ? '<span style="font-size:0.7rem;color:var(--text-muted)">ne peut être défaussée</span>' : `<button class="hc-btn" onclick="discardCard(${p.id},${i})">Défausser</button>`}</div>`).join('');
   openModal(`${p.name} — trop de cartes`,
     `<p style="color:var(--text-muted)">Vous devez descendre à 3 cartes en main (${p.hand.length} actuellement).</p>${rows}`,
     []
@@ -955,11 +991,13 @@ function resolveTraitreCard(p) {
       [
         {label:'Accepter — devenir Traître', danger:true, action:()=>{
           p.role = ROLE_TRAITRE;
+          p.hand.push({type:'traitre_marker'});
           const complices = G.players.filter(x=>x.alive && x.role===ROLE_TRAITRE && x.id!==p.id).map(x=>x.name);
           openModal('Bienvenue parmi les Traîtres',
             `<p>Vous êtes désormais <b style="color:#ff7675">Traître</b>. Gardez-le secret.</p>
-             <p>${complices.length ? 'Vos complices en vie : <b>'+complices.join(', ')+'</b>. Trouvez un moment pour vous coordonner discrètement.' : "Aucun autre Traître n'est en vie pour le moment — vous agissez seul(e)."}</p>`,
-            [{label:"Compris, cacher l'écran", action:()=>{ closeModal(); logEvent(`${p.name} a tiré la carte Traître et a rejoint les Traîtres.`); handTurnOptions(p); }}]);
+             <p>${complices.length ? 'Vos complices en vie : <b>'+complices.join(', ')+'</b>. Trouvez un moment pour vous coordonner discrètement.' : "Aucun autre Traître n'est en vie pour le moment — vous agissez seul(e)."}</p>
+             <p style="color:var(--text-muted)">La carte Traître reste en permanence dans votre main (elle occupe une place, mais ne peut être ni jouée, ni défaussée, ni volée).</p>`,
+            [{label:"Compris, cacher l'écran", action:()=>{ closeModal(); handTurnOptions(p); }}]);
         }},
         {label:'Refuser', action:()=>{
           toast(`${p.name} refuse le recrutement — la carte Traître est révélée puis écartée.`);
