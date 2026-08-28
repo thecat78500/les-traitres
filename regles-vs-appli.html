@@ -1,0 +1,386 @@
+<!doctype html>
+<title>Traîtres : Règles & Appli</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #f3ede0;
+    --surface: #ffffff;
+    --surface-2: #faf4e6;
+    --line: #ddd0b4;
+    --ink: #241f1a;
+    --ink-muted: #6b5f4e;
+    --gold: #8a6a1f;
+    --gold-soft: rgba(138,106,31,0.10);
+    --loyal: #2f6fb0;
+    --loyal-soft: rgba(47,111,176,0.10);
+    --traitor: #a5322a;
+    --traitor-soft: rgba(165,50,42,0.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b0a12;
+      --surface: #15131f;
+      --surface-2: #1a1828;
+      --line: #322c40;
+      --ink: #ece4d3;
+      --ink-muted: #9c8f7a;
+      --gold: #c9a35a;
+      --gold-soft: rgba(201,163,90,0.12);
+      --loyal: #6fa2d8;
+      --loyal-soft: rgba(111,162,216,0.12);
+      --traitor: #d9695d;
+      --traitor-soft: rgba(217,105,93,0.12);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b0a12;
+    --surface: #15131f;
+    --surface-2: #1a1828;
+    --line: #322c40;
+    --ink: #ece4d3;
+    --ink-muted: #9c8f7a;
+    --gold: #c9a35a;
+    --gold-soft: rgba(201,163,90,0.12);
+    --loyal: #6fa2d8;
+    --loyal-soft: rgba(111,162,216,0.12);
+    --traitor: #d9695d;
+    --traitor-soft: rgba(217,105,93,0.12);
+  }
+
+  * { box-sizing: border-box; }
+  html { text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+    font-size: 17px;
+    line-height: 1.6;
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+  .wrap { max-width: 860px; margin: 0 auto; padding: 3.5rem 1.5rem 6rem; }
+
+  header.hero { margin-bottom: 3rem; }
+  .eyebrow {
+    font-family: 'Cinzel', serif; font-size: 0.72rem; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--gold); margin: 0 0 0.9rem;
+  }
+  h1 {
+    font-family: 'Cinzel', serif; font-weight: 700;
+    font-size: clamp(2rem, 5vw, 2.7rem); line-height: 1.15;
+    margin: 0 0 0.9rem; text-wrap: balance; letter-spacing: 0.01em;
+  }
+  .dek { color: var(--ink-muted); font-size: 1.08rem; max-width: 62ch; margin: 0; }
+
+  .divider {
+    display: flex; align-items: center; gap: 0.8rem; margin: 0 0 3rem;
+    color: var(--gold); font-size: 0.9rem;
+  }
+  .divider::before, .divider::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--line), transparent);
+  }
+
+  section.phase { margin-bottom: 2.2rem; }
+  .phase-head {
+    display: flex; align-items: baseline; gap: 0.7rem; margin-bottom: 0.9rem;
+  }
+  .phase-num {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--ink-muted);
+    border: 1px solid var(--line); border-radius: 999px; padding: 0.15rem 0.6rem;
+    flex-shrink: 0;
+  }
+  .phase-head h2 {
+    font-family: 'Cinzel', serif; font-size: 1.25rem; font-weight: 600;
+    margin: 0; letter-spacing: 0.01em; text-wrap: balance;
+  }
+  .phase-icon { font-size: 1.15rem; }
+
+  .panel {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    overflow: hidden;
+  }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 640px) { .cols { grid-template-columns: 1fr; } }
+
+  .col { padding: 1.15rem 1.3rem; }
+  .col + .col { border-left: 1px solid var(--line); }
+  @media (max-width: 640px) { .col + .col { border-left: none; border-top: 1px solid var(--line); } }
+
+  .col-label {
+    font-family: 'Cinzel', serif; font-size: 0.68rem; letter-spacing: 0.15em;
+    text-transform: uppercase; margin: 0 0 0.6rem; display: flex; align-items: center; gap: 0.4rem;
+  }
+  .col-rule .col-label { color: var(--ink-muted); }
+  .col-app .col-label { color: var(--gold); }
+
+  .col p { margin: 0 0 0.6rem; font-size: 0.96rem; }
+  .col p:last-child { margin-bottom: 0; }
+  .col ul { margin: 0 0 0.6rem; padding-left: 1.1rem; font-size: 0.96rem; }
+  .col li { margin-bottom: 0.3rem; }
+
+  code {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.82em;
+    background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 4px; padding: 0.05em 0.4em;
+  }
+
+  .tag {
+    display: inline-block; font-family: 'Cinzel', serif; font-size: 0.68rem;
+    letter-spacing: 0.08em; text-transform: uppercase; border-radius: 999px;
+    padding: 0.12rem 0.55rem; margin: 0 0.3rem 0.3rem 0; border: 1px solid transparent;
+  }
+  .tag-loyal { background: var(--loyal-soft); color: var(--loyal); border-color: var(--loyal); }
+  .tag-traitor { background: var(--traitor-soft); color: var(--traitor); border-color: var(--traitor); }
+  .tag-gold { background: var(--gold-soft); color: var(--gold); border-color: var(--gold); }
+
+  .callout {
+    background: var(--gold-soft); border: 1px solid var(--gold);
+    border-radius: 14px; padding: 1.5rem 1.6rem; margin-top: 3rem;
+  }
+  .callout h2 {
+    font-family: 'Cinzel', serif; font-size: 1.05rem; color: var(--gold);
+    margin: 0 0 1rem; letter-spacing: 0.02em;
+  }
+  .callout ol { margin: 0; padding-left: 1.2rem; }
+  .callout li { margin-bottom: 0.9rem; font-size: 0.96rem; }
+  .callout li:last-child { margin-bottom: 0; }
+  .callout li b { font-family: 'Cinzel', serif; font-weight: 600; font-size: 0.97em; }
+
+  footer {
+    margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid var(--line);
+    color: var(--ink-muted); font-size: 0.85rem; text-align: center;
+  }
+
+  ::selection { background: var(--gold-soft); }
+</style>
+
+<div class="wrap">
+
+  <header class="hero">
+    <p class="eyebrow">Les Traîtres — Jeu de cartes officiel (TOMY)</p>
+    <h1>Règles du jeu, phase par phase — et comment l'appli les arbitre</h1>
+    <p class="dek">Le paquet, les mains et la cagnotte restent 100&nbsp;% physiques. L'appli ne fait qu'arbitrer les moments qui exigent du secret : rôles, votes, recrutement. Chaque section ci-dessous met en regard la règle officielle et son traitement dans le compagnon numérique.</p>
+  </header>
+
+  <div class="divider">Déroulement</div>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">01</span>
+      <span class="phase-icon">🂠</span>
+      <h2>Préparation du paquet</h2>
+    </div>
+    <div class="panel cols">
+      <div class="col col-rule">
+        <p class="col-label">Règle officielle</p>
+        <p>On met de côté la carte Traître (recrutement), les 8 cartes Événement et la carte Bannissement final. On mélange les 50 cartes restantes (Lingots, Bouclier, Poignard) et on distribue 3&nbsp;cartes à chaque joueur. On remélange la carte Traître dans le paquet, on espace les 8&nbsp;cartes Événement à intervalles réguliers, et on place la carte Bannissement final tout au fond.</p>
+      </div>
+      <div class="col col-app">
+        <p class="col-label">Traitement appli</p>
+        <p>Aucune simulation de paquet. L'appli affiche un rappel des étapes ci-dessus (<code>showHowToPlay()</code>) au lancement de la partie, et un bouton "ℹ️ Rappel des règles" le rouvre à tout moment. La préparation physique reste entièrement entre vos mains.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">02</span>
+      <span class="phase-icon">🎭</span>
+      <h2>Distribution des rôles &amp; main de départ</h2>
+    </div>
+    <div class="panel cols">
+      <div class="col col-rule">
+        <p class="col-label">Règle officielle</p>
+        <p>1&nbsp;carte Traître + N-1&nbsp;cartes Loyal sont mélangées et distribuées face cachée. Chacun regarde la sienne en secret, ainsi que sa main de départ de 3&nbsp;cartes.</p>
+      </div>
+      <div class="col col-app">
+        <p class="col-label">Traitement appli</p>
+        <p>Un seul bouton "Commencer" lance une séquence automatique <code>runSequential()</code> : l'iPad passe de joueur en joueur, chacun sur un écran-verrou privé (<code>revealGate</code>) déclare lui-même son rôle puis ses 3&nbsp;cartes — jamais de grille partagée à l'écran. Une carte mal déclarée se corrige immédiatement ("◀ corriger la précédente") ou depuis le récapitulatif ("Recommencer ma main").</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">03</span>
+      <span class="phase-icon">↻</span>
+      <h2>Boucle de tour</h2>
+    </div>
+    <div class="panel cols">
+      <div class="col col-rule">
+        <p class="col-label">Règle officielle</p>
+        <p>Dans le sens horaire : on pioche la carte du dessus. Lingot / Bouclier / Poignard rejoint la main (max&nbsp;3, on défausse le surplus). On peut ensuite jouer <em>une seule</em> carte de sa main.</p>
+      </div>
+      <div class="col col-app">
+        <p class="col-label">Traitement appli</p>
+        <p>Le joueur indiqué pioche sa <em>vraie</em> carte, puis déclare son type en secret (<code>declareDraw()</code>). L'appli ajoute la carte à sa main suivie, propose de jouer un Lingot (→&nbsp;cagnotte) ou un Poignard (→&nbsp;chantage), puis force la défausse au-delà de 3&nbsp;cartes avant de passer la main au joueur suivant.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider">Les trois Événements</div>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">04</span>
+      <span class="phase-icon">❔</span>
+      <h2>Carte Événement — tirage au sort</h2>
+    </div>
+    <div class="panel cols">
+      <div class="col col-rule">
+        <p class="col-label">Règle officielle</p>
+        <p>Quand une carte Événement est piochée, elle se joue immédiatement : "l'un des trois événements suivants apparaît", déterminé par les 8&nbsp;cartes de sélection physiques (répartition exacte non précisée par le livret).</p>
+      </div>
+      <div class="col col-app">
+        <p class="col-label">Traitement appli</p>
+        <p>Tirage aléatoire <code>Math.random()</code> à parts égales — <span class="tag tag-gold">1/3</span> chacun entre Nuit tranquille, Assassinat et Bannissement. Approximation assumée : la vraie boîte a peut-être une répartition différente entre ses 8&nbsp;cartes, jamais précisée dans le livret.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">04a</span>
+      <span class="phase-icon">🌙</span>
+      <h2>Nuit tranquille</h2>
+    </div>
+    <div class="panel cols">
+      <div class="col col-rule">
+        <p class="col-label">Règle officielle</p>
+        <p>Rien ne se passe. La partie continue normalement.</p>
+      </div>
+      <div class="col col-app">
+        <p class="col-label">Traitement appli</p>
+        <p>Message public, aucune saisie secrète nécessaire. Le tour passe ensuite au joueur suivant.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">04b</span>
+      <span class="phase-icon">🗡️</span>
+      <h2>Assassinat</h2>
+    </div>
+    <div class="panel cols">
+      <div class="col col-rule">
+        <p class="col-label">Règle officielle</p>
+        <p>Chacun appuie sur un bouton sans que personne ne voie pour qui. <span class="tag tag-loyal">Loyal</span> valide "L" ; <span class="tag tag-traitor">Traître</span> désigne une victime (ou se protège lui-même). La victime révélée peut jouer un Bouclier pour survivre ; sinon elle est éliminée et révèle son rôle.</p>
+      </div>
+      <div class="col col-app">
+        <p class="col-label">Traitement appli</p>
+        <p>Séquence secrète <code>runSequential</code> : les Loyaux voient un écran factice, les Traîtres voient les cibles <em>et</em> les choix déjà faits par leurs complices cette nuit-là (pour s'aligner). Le Bouclier est vérifié <strong>automatiquement</strong> dans la main déclarée de la victime — l'appli sait si elle en a un, sans avoir à demander à l'aveugle.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">04c</span>
+      <span class="phase-icon">⚖️</span>
+      <h2>Bannissement</h2>
+    </div>
+    <div class="panel cols">
+      <div class="col col-rule">
+        <p class="col-label">Règle officielle</p>
+        <p>Débat ouvert, puis vote secret de tous. Majorité = banni ; égalité → revote entre les joueurs à égalité uniquement. Le banni révèle son rôle.</p>
+      </div>
+      <div class="col col-app">
+        <p class="col-label">Traitement appli</p>
+        <p>Écran de débat, puis vote séquentiel de tous les vivants. Le détail des votes est révélé publiquement, comme dans la vraie règle. Égalité → revote automatique restreint aux joueurs à égalité (<code>runBanVote</code>).</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider">Cartes spéciales</div>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">05</span>
+      <span class="phase-icon">🎭</span>
+      <h2>Carte Traître (recrutement)</h2>
+    </div>
+    <div class="panel cols">
+      <div class="col col-rule">
+        <p class="col-label">Règle officielle</p>
+        <p>Distincte du rôle initial : une seule dans le paquet. Le joueur qui la pioche peut devenir Traître (accepter) ou la révéler et l'écarter (refuser). Un Traître qui la repioche la défausse sans effet.</p>
+      </div>
+      <div class="col col-app">
+        <p class="col-label">Traitement appli</p>
+        <p>Prompt privé accepter/refuser. En cas d'acceptation, l'appli révèle immédiatement au nouveau Traître la liste de ses complices en vie, pour qu'il aille se coordonner discrètement — condition posée explicitement pour cette implémentation.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">06</span>
+      <span class="phase-icon">🛡️</span>
+      <h2>Bouclier &amp; Poignard</h2>
+    </div>
+    <div class="panel cols">
+      <div class="col col-rule">
+        <p class="col-label">Règle officielle</p>
+        <p><b>Bouclier</b> : protège d'un Assassinat uniquement, usage unique. <b>Poignard</b> : fait chanter un joueur pour voir sa main et lui prendre une carte (jamais la carte Rôle).</p>
+      </div>
+      <div class="col col-app">
+        <p class="col-label">Traitement appli</p>
+        <p>Bouclier consommé automatiquement s'il est joué. Poignard ouvre la main déclarée de la cible (visible seulement par le joueur en cours), avec possibilité de prendre une carte — y compris rejouer un Poignard volé immédiatement.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider">Fin de partie</div>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">07</span>
+      <span class="phase-icon">🪙</span>
+      <h2>Cagnotte &amp; comptage des points</h2>
+    </div>
+    <div class="panel cols">
+      <div class="col col-rule">
+        <p class="col-label">Règle officielle</p>
+        <p>Chaque survivant ajoute ses Lingots en main à son score. S'il ne reste que des Loyaux, ils partagent la cagnotte à parts égales. S'il reste au moins un Traître, il rafle <em>toute</em> la cagnotte (partagée entre Traîtres survivants s'ils sont plusieurs).</p>
+      </div>
+      <div class="col col-app">
+        <p class="col-label">Traitement appli</p>
+        <p>Calcul automatique à l'écran final à partir des mains et de la cagnotte suivies par l'appli — fidèle à la règle, y compris la règle "le(s) Traître(s) rafle(nt) tout".</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">08</span>
+      <span class="phase-icon">🏁</span>
+      <h2>Fin de la manche</h2>
+    </div>
+    <div class="panel cols">
+      <div class="col col-rule">
+        <p class="col-label">Règle officielle</p>
+        <p>La manche se termine à 2&nbsp;joueurs restants, par consensus que tous les Traîtres sont éliminés, ou quand la carte Bannissement final est piochée (elle déclare un ultime vote).</p>
+      </div>
+      <div class="col col-app">
+        <p class="col-label">Traitement appli</p>
+        <p>Les trois déclencheurs sont couverts : détection automatique à 2&nbsp;survivants, prompt de consensus après un bannissement de Traître, et déclaration "⚖️ Bannissement final piochée" dans le menu de tour. Un bouton "Terminer la partie" reste disponible à tout moment en secours.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="callout">
+    <h2>Écarts assumés par rapport au livret</h2>
+    <ol>
+      <li><b>Ordre de tour après un Événement.</b> Le livret prévoit que le joueur ayant tiré la carte Événement repioche immédiatement après. Ici, le tour passe systématiquement au joueur suivant — changement demandé après test, l'appli ne suit donc pas le livret sur ce point précis.</li>
+      <li><b>Répartition des 8 cartes Événement.</b> Le livret ne précise pas la proportion exacte entre Nuit tranquille / Assassinat / Bannissement parmi les 8 cartes physiques. L'appli tire à parts égales (1/3 chacun), une approximation raisonnable mais non vérifiée contre la vraie boîte.</li>
+      <li><b>Une seule partie, sans tournoi en plusieurs manches.</b> Le livret recommande de rejouer plusieurs manches courtes pour lisser le hasard. Ici, chaque partie se joue une fois jusqu'à sa fin naturelle, avec un bouton "Réinitialiser" disponible à tout moment pour repartir sans retaper les prénoms.</li>
+    </ol>
+  </div>
+
+  <footer>Document de référence généré pour accompagner <code>les-traitres.html</code>.</footer>
+
+</div>

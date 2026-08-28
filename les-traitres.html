@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Les Traîtres — Compagnon de jeu</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Lato:wght@300;400;700&display=swap');
+
+  :root {
+    --gold: #c9a84c;
+    --gold-light: #f0d080;
+    --dark: #0a0a12;
+    --dark2: #10101e;
+    --dark3: #1a1a2e;
+    --faithful-color: #3498db;
+    --traitor-color: #c0392b;
+    --text: #e8e0d0;
+    --text-muted: #9a8f7e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--dark);
+    color: var(--text);
+    font-family: 'Lato', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  #stars-canvas {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 0;
+  }
+
+  .particle {
+    position: fixed; pointer-events: none; z-index: 1;
+    width: 4px; height: 4px; border-radius: 50%;
+    background: var(--gold-light); opacity: 0;
+    animation: float-up 4s ease-out forwards;
+  }
+  @keyframes float-up {
+    0%   { transform: translateY(0) scale(1); opacity: 0.8; }
+    100% { transform: translateY(-200px) scale(0); opacity: 0; }
+  }
+
+  #app {
+    position: relative; z-index: 2;
+    max-width: 860px; margin: 0 auto;
+    padding: 1.5rem 1rem 4rem;
+    min-height: 100vh;
+  }
+
+  .screen { display: none; animation: fadeIn 0.6s ease; }
+  .screen.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+  .game-header { text-align: center; margin-bottom: 2rem; }
+  .game-header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(2rem, 6vw, 3.5rem);
+    color: var(--gold);
+    text-shadow: 0 0 30px rgba(201,168,76,0.5);
+    letter-spacing: 0.08em;
+  }
+  .game-header .subtitle {
+    font-size: 0.85rem; letter-spacing: 0.2em;
+    color: var(--text-muted); text-transform: uppercase; margin-top: 0.3rem;
+  }
+  .divider {
+    display: flex; align-items: center; gap: 12px; margin: 1.5rem 0;
+  }
+  .divider::before, .divider::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+  .divider span { color: var(--gold); font-size: 1.2rem; }
+
+  .panel {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(201,168,76,0.2);
+    border-radius: 12px; padding: 1.5rem;
+    margin-bottom: 1.2rem;
+    backdrop-filter: blur(4px);
+  }
+  .panel-title {
+    font-family: 'Cinzel', serif;
+    font-size: 0.85rem; letter-spacing: 0.15em;
+    color: var(--gold); text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 0.75rem 1.8rem;
+    border: 1px solid var(--gold);
+    background: transparent; color: var(--gold);
+    font-family: 'Cinzel', serif; font-size: 0.9rem;
+    letter-spacing: 0.1em; cursor: pointer; border-radius: 6px;
+    transition: all 0.25s; text-transform: uppercase;
+    position: relative; overflow: hidden;
+  }
+  .btn::before {
+    content: ''; position: absolute; inset: 0;
+    background: var(--gold); opacity: 0; transition: opacity 0.25s;
+  }
+  .btn:hover::before { opacity: 0.12; }
+  .btn:hover { box-shadow: 0 0 20px rgba(201,168,76,0.3); transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn span { position: relative; z-index: 1; }
+  .btn-full { width: 100%; margin-top: 0.5rem; }
+  .btn-danger { border-color: var(--traitor-color); color: var(--traitor-color); }
+  .btn-danger:hover { box-shadow: 0 0 20px rgba(192,57,43,0.3); }
+  .btn-block { display: block; width: 100%; margin-bottom: 8px; text-align: center; }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn:disabled:hover { box-shadow: none; transform: none; }
+
+  .input-row { display: flex; gap: 8px; margin-bottom: 0.8rem; }
+  input[type=text], input[type=number] {
+    flex: 1; background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(201,168,76,0.3);
+    color: var(--text); padding: 0.65rem 1rem;
+    border-radius: 6px; font-size: 0.95rem; font-family: 'Lato', sans-serif;
+    outline: none; transition: border-color 0.2s;
+  }
+  input[type=text]:focus, input[type=number]:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 12px rgba(201,168,76,0.2);
+  }
+
+  .player-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px; padding: 0.4rem 0.9rem 0.4rem 0.5rem;
+    margin: 4px; font-size: 0.9rem; animation: popIn 0.3s ease;
+  }
+  @keyframes popIn { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .player-chip .av {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--gold); color: var(--dark);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; font-weight: 700;
+  }
+  .chip-remove {
+    background: none; border: none; color: var(--text-muted);
+    cursor: pointer; font-size: 1rem; line-height: 1;
+    padding: 0 2px; transition: color 0.2s;
+  }
+  .chip-remove:hover { color: var(--traitor-color); }
+
+  /* Role card flip */
+  .playing-card {
+    width: 90px; height: 130px; border-radius: 10px;
+    perspective: 600px; cursor: pointer; display: inline-block;
+  }
+  .card-inner {
+    width: 100%; height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.6s cubic-bezier(0.4,0,0.2,1);
+    position: relative;
+  }
+  .playing-card.flipped .card-inner { transform: rotateY(180deg); }
+  .card-face {
+    position: absolute; inset: 0; border-radius: 10px;
+    backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; border: 2px solid rgba(255,255,255,0.15);
+  }
+  .card-back {
+    background: var(--dark3);
+    background-image: repeating-linear-gradient(
+      45deg, rgba(201,168,76,0.08) 0px, rgba(201,168,76,0.08) 1px, transparent 1px, transparent 8px
+    );
+    border: 2px solid var(--gold);
+  }
+  .card-back .logo {
+    font-family: 'Cinzel', serif; font-size: 1.1rem;
+    color: var(--gold); text-align: center; line-height: 1.3;
+  }
+  .card-front { transform: rotateY(180deg); }
+  .card-front.red-card { background: #1a0505; border-color: #c0392b; }
+  .card-front.black-card { background: #05050f; border-color: #444; }
+  .card-suit { font-size: 2.2rem; }
+  .card-role-label {
+    font-size: 0.62rem; font-family: 'Cinzel', serif;
+    letter-spacing: 0.1em; text-transform: uppercase; margin-top: 4px;
+  }
+  .card-front.red-card .card-role-label { color: #e74c3c; }
+  .card-front.black-card .card-role-label { color: #888; }
+
+  .deal-grid { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; margin: 1rem 0; }
+  .deal-item { text-align: center; animation: dealIn 0.4s ease backwards; }
+  .deal-item .deal-name {
+    margin-top: 8px; font-size: 0.8rem; color: var(--text-muted);
+    max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  @keyframes dealIn {
+    from { transform: translateY(-60px) rotate(-10deg); opacity: 0; }
+    to   { transform: translateY(0) rotate(0deg); opacity: 1; }
+  }
+
+  .lock-badge {
+    display: inline-block; font-size: 0.7rem; padding: 3px 10px;
+    border-radius: 20px; margin-top: 6px;
+    background: rgba(255,255,255,0.06); color: var(--text-muted);
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+  .lock-badge.seen { color: #74b9ff; border-color: rgba(52,152,219,0.3); background: rgba(52,152,219,0.1); }
+
+  .vote-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px; margin: 1rem 0;
+  }
+  .vote-btn {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: var(--text); border-radius: 8px;
+    padding: 0.75rem 0.5rem; cursor: pointer;
+    text-align: center; font-size: 0.9rem; font-family: 'Lato', sans-serif;
+    transition: all 0.2s; display: flex; flex-direction: column;
+    align-items: center; gap: 6px;
+  }
+  .vote-btn .vav {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(255,255,255,0.1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: 700; color: var(--gold); transition: background 0.2s;
+  }
+  .vote-btn:hover { border-color: var(--gold); background: rgba(201,168,76,0.08); }
+  .vote-btn:hover .vav { background: rgba(201,168,76,0.2); }
+
+  .player-live-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 0.75rem; border-radius: 8px; margin-bottom: 6px;
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+    transition: all 0.3s;
+  }
+  .player-live-row.eliminated { opacity: 0.45; text-decoration: line-through; }
+  .player-live-row.current { border-color: var(--gold); box-shadow: 0 0 14px rgba(201,168,76,0.2); }
+  .player-live-row .av2 {
+    width: 38px; height: 38px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
+  }
+  .av2.faithful { background: rgba(52,152,219,0.2); color: #74b9ff; border: 1px solid rgba(52,152,219,0.4); }
+  .av2.traitor  { background: rgba(192,57,43,0.2); color: #ff7675; border: 1px solid rgba(192,57,43,0.4); }
+  .av2.unknown  { background: rgba(255,255,255,0.08); color: var(--gold); border: 1px solid rgba(201,168,76,0.3); }
+  .plr-name { flex: 1; font-size: 0.95rem; }
+  .plr-sub { font-size: 0.72rem; color: var(--text-muted); }
+  .plr-badge {
+    font-size: 0.7rem; padding: 3px 10px; border-radius: 20px;
+    font-family: 'Cinzel', serif; letter-spacing: 0.1em;
+  }
+  .badge-t { background: rgba(192,57,43,0.2); color: #ff7675; border: 1px solid rgba(192,57,43,0.3); }
+  .badge-f { background: rgba(52,152,219,0.2); color: #74b9ff; border: 1px solid rgba(52,152,219,0.3); }
+  .badge-d { background: rgba(255,255,255,0.05); color: #555; border: 1px solid rgba(255,255,255,0.1); }
+
+  .result-glow {
+    text-align: center; padding: 2.4rem 1rem;
+    border-radius: 16px; margin-bottom: 1.5rem;
+  }
+  .result-faithful { background: radial-gradient(circle at 50% 0%, rgba(52,152,219,0.3), transparent 70%); border: 1px solid rgba(52,152,219,0.4); }
+  .result-traitor  { background: radial-gradient(circle at 50% 0%, rgba(192,57,43,0.3), transparent 70%); border: 1px solid rgba(192,57,43,0.4); }
+  .result-glow h2 { font-family: 'Cinzel', serif; font-size: 2rem; margin-bottom: 0.5rem; }
+  .result-faithful h2 { color: #74b9ff; }
+  .result-traitor  h2 { color: #ff7675; }
+
+  .log-entry {
+    font-size: 0.85rem; color: var(--text-muted); padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .log-entry:last-child { border-bottom: none; }
+  .log-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: var(--gold); }
+
+  #toast {
+    position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: rgba(10,10,20,0.95); border: 1px solid var(--gold);
+    color: var(--text); padding: 0.75rem 1.5rem; border-radius: 8px;
+    font-size: 0.9rem; z-index: 9999; transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+    max-width: 90vw; text-align: center;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  #modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+    z-index: 500; display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s; padding: 1rem;
+  }
+  #modal-overlay.open { opacity: 1; pointer-events: all; }
+  #modal-box {
+    background: var(--dark3); border: 1px solid var(--gold);
+    border-radius: 16px; padding: 1.8rem; max-width: 460px; width: 100%;
+    max-height: 88vh; overflow-y: auto;
+    transform: scale(0.9); transition: transform 0.3s; text-align: center;
+  }
+  #modal-overlay.open #modal-box { transform: scale(1); }
+  #modal-box h3 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.2rem; margin-bottom: 0.6rem; }
+  #modal-box .modal-body  { color: var(--text); font-size: 0.92rem; margin-bottom: 1.3rem; line-height: 1.6; text-align: left; }
+  #modal-box .modal-body p { margin-bottom: 0.6rem; }
+  #modal-box .modal-btns { display: flex; flex-direction: column; gap: 8px; }
+  #modal-box .modal-btns.row { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+
+  .lock-screen {
+    text-align: center; padding: 2.5rem 1rem;
+  }
+  .lock-screen .lock-icon { font-size: 3rem; margin-bottom: 1rem; }
+
+  .hand-card {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px; padding: 0.6rem 0.9rem; margin-bottom: 8px;
+  }
+  .hand-card .hc-icon { font-size: 1.3rem; width: 28px; text-align: center; }
+  .hand-card .hc-label { flex: 1; font-size: 0.92rem; }
+  .hand-card .hc-btn {
+    font-size: 0.7rem; padding: 5px 10px; border-radius: 6px;
+    border: 1px solid var(--gold); color: var(--gold); background: transparent;
+    cursor: pointer; font-family: 'Cinzel', serif; letter-spacing: 0.05em;
+  }
+  .hand-card .hc-btn:hover { background: rgba(201,168,76,0.15); }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.3); border-radius: 2px; }
+
+  .warn { color: #e17055; font-size: 0.82rem; margin-top: 0.4rem; display: none; }
+  .warn.show { display: block; }
+  .hint { font-size: 0.8rem; color: var(--text-muted); margin-top: 6px; }
+
+  #global-reset-btn {
+    position: fixed; top: 12px; right: 12px; z-index: 400;
+    background: rgba(10,10,20,0.85); border: 1px solid rgba(192,57,43,0.4);
+    color: var(--text-muted); font-family: 'Lato', sans-serif; font-size: 0.75rem;
+    padding: 6px 12px; border-radius: 20px; cursor: pointer; transition: all 0.2s;
+  }
+  #global-reset-btn:hover { border-color: var(--traitor-color); color: #ff7675; }
+</style>
+</head>
+<body>
+
+<canvas id="stars-canvas"></canvas>
+<div id="toast"></div>
+
+<div id="modal-overlay">
+  <div id="modal-box">
+    <h3 id="modal-title"></h3>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-btns" id="modal-btns"></div>
+  </div>
+</div>
+
+<div id="app">
+
+  <!-- SETUP -->
+  <div id="screen-setup" class="screen active">
+    <div class="game-header">
+      <h1>Les Traîtres</h1>
+      <div class="subtitle">Compagnon de jeu numérique — jeu de cartes</div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Étape 1 — Ajoutez les joueurs</div>
+      <p class="hint" style="margin:-0.4rem 0 0.9rem">Tapez le prénom d'un joueur, appuyez sur <b>Ajouter</b>, et recommencez pour chaque participant assis à la table (4 minimum, 8 maximum).</p>
+      <div class="input-row">
+        <input type="text" id="name-input" placeholder="Prénom du joueur…" maxlength="20" autofocus>
+        <button class="btn" onclick="addPlayer()"><span>Ajouter</span></button>
+      </div>
+      <div id="warn-min" class="warn">Il faut entre 4 et 8 joueurs.</div>
+      <div id="player-count-hint" class="hint">Aucun joueur ajouté pour l'instant.</div>
+      <div id="chips-container"></div>
+      <div id="clear-players-row" style="display:none;margin-top:8px">
+        <button onclick="confirmClearPlayers()" style="background:none;border:none;color:var(--text-muted);font-size:0.78rem;text-decoration:underline;cursor:pointer;padding:0">Vider la liste (nouveau groupe)</button>
+      </div>
+    </div>
+    <div class="divider"><span>♠</span></div>
+    <button class="btn btn-full" id="begin-round-btn" onclick="beginRound()" disabled><span>Distribuer les rôles &amp; commencer</span></button>
+  </div>
+
+  <!-- ROLE / HAND REVEAL -->
+  <div id="screen-reveal" class="screen">
+    <div class="game-header">
+      <h1>Les Traîtres</h1>
+      <div class="subtitle" id="reveal-subtitle">Distribution des rôles</div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Chaque joueur déclare son rôle et sa main de départ, en secret</div>
+      <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1rem">Distribuez les vraies cartes Rôle et les mains de départ (3 cartes chacun) comme d'habitude, en secret. Ensuite, appuyez sur "Commencer" : l'appli passe automatiquement d'un joueur à l'autre, un par un, sur une page privée — jamais de grille partagée à l'écran.</p>
+      <div id="reveal-status-list"></div>
+      <button class="btn btn-full" id="start-declarations-btn" onclick="startRoleDeclarations()"><span>Commencer les déclarations (un par un)</span></button>
+    </div>
+    <div class="divider"><span>♦</span></div>
+    <button class="btn btn-full" id="reveal-start-btn" onclick="startTable()" disabled><span>Tout le monde a déclaré — commencer la partie</span></button>
+  </div>
+
+  <!-- TABLE (main loop) -->
+  <div id="screen-table" class="screen">
+    <p class="hint" id="table-alive-hint" style="text-align:center;margin-bottom:1rem"></p>
+    <div class="panel">
+      <div class="panel-title">Autour de la table</div>
+      <div id="table-players"></div>
+    </div>
+    <div class="panel" style="text-align:center">
+      <div class="panel-title">Tour en cours</div>
+      <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1rem">Le paquet, les mains et la cagnotte restent 100% physiques. Une fois que le joueur indiqué a pioché sa vraie carte, passez-lui l'iPad et appuyez ci-dessous — il déclarera en secret ce qu'il a tiré.</p>
+      <button class="btn btn-full" id="table-turn-btn" onclick="declareDraw()"><span>🔒 Déclarer la carte piochée</span></button>
+      <button class="btn btn-full" style="margin-top:1rem" onclick="showHowToPlay()"><span>ℹ️ Rappel des règles</span></button>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Journal de la partie</div>
+      <div id="table-log"></div>
+    </div>
+    <button class="btn btn-full" style="border-color:rgba(255,255,255,0.15);color:var(--text-muted)" onclick="confirmFinishRound()"><span>Terminer la partie maintenant</span></button>
+  </div>
+
+  <!-- END -->
+  <div id="screen-roundend" class="screen">
+    <div class="result-glow" id="roundend-result"></div>
+    <div class="panel">
+      <div class="panel-title">Résultat final</div>
+      <div id="roundend-table"></div>
+    </div>
+    <div class="divider"><span>♣</span></div>
+    <button class="btn btn-full" onclick="resetGame()"><span>Nouvelle partie</span></button>
+  </div>
+
+</div>
+
+<button id="global-reset-btn" onclick="confirmReset()" title="Réinitialiser la partie">↺ Réinitialiser</button>
+
+<script>
+/* ===================== STATE ===================== */
+const ROLE_LOYAL = 'loyal', ROLE_TRAITRE = 'traitre';
+
+let G = null; // {players:[{id,name,role,alive}]}
+let S = null; // {log:[], revealSeen:{}}
+
+/* ===================== BACKGROUND FX ===================== */
+(function() {
+  const c = document.getElementById('stars-canvas');
+  const ctx = c.getContext('2d');
+  let stars = [];
+  function resize() { c.width = window.innerWidth; c.height = window.innerHeight; }
+  function init() {
+    stars = Array.from({length:220}, () => ({
+      x: Math.random()*c.width, y: Math.random()*c.height,
+      r: Math.random()*1.5+0.3, a: Math.random(), speed: Math.random()*0.5+0.2
+    }));
+  }
+  function draw() {
+    ctx.clearRect(0,0,c.width,c.height);
+    stars.forEach(s => {
+      s.a += 0.005 * s.speed;
+      const alpha = 0.3 + 0.5*Math.abs(Math.sin(s.a));
+      ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.fillStyle = `rgba(220,200,150,${alpha})`; ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  window.addEventListener('resize', () => { resize(); init(); });
+  resize(); init(); draw();
+})();
+
+function initials(n) { return n.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2); }
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-'+id).classList.add('active');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+function spawnParticles(x, y) {
+  for (let i=0; i<10; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = (x + (Math.random()-0.5)*60) + 'px';
+    p.style.top  = y + 'px';
+    p.style.animationDelay = (Math.random()*0.5) + 's';
+    p.style.background = Math.random()>0.5 ? '#f0d080' : '#ff7675';
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 5000);
+  }
+}
+
+/* ===================== MODAL ===================== */
+function openModal(title, bodyHTML, buttons, opts) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHTML;
+  const btns = document.getElementById('modal-btns');
+  btns.className = 'modal-btns' + (opts && opts.row ? ' row' : '');
+  btns.innerHTML = '';
+  buttons.forEach(b => {
+    const el = document.createElement('button');
+    el.className = 'btn' + (b.danger ? ' btn-danger' : '') + (buttons.length>1 ? ' btn-block' : ' btn-full');
+    el.innerHTML = `<span>${b.label}</span>`;
+    if (b.disabled) {
+      el.disabled = true;
+      el.dataset.permaDisabled = '1';
+    } else {
+      el.onclick = () => { b.action(); };
+    }
+    btns.appendChild(el);
+  });
+  document.getElementById('modal-overlay').classList.add('open');
+
+  if (opts && opts.minDelay) {
+    const allBtns = [...btns.querySelectorAll('button')].filter(b => !b.dataset.permaDisabled);
+    allBtns.forEach(b => b.disabled = true);
+    const hint = document.createElement('p');
+    hint.id = 'modal-delay-hint';
+    hint.style.cssText = 'color:var(--text-muted);font-size:0.78rem;text-align:center;margin-bottom:0.6rem';
+    hint.textContent = 'Un instant…';
+    btns.parentNode.insertBefore(hint, btns);
+    const [min, max] = opts.minDelay;
+    setTimeout(() => {
+      allBtns.forEach(b => b.disabled = false);
+      hint.remove();
+    }, min + Math.random()*(max-min));
+  }
+}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+
+/* Lock-screen "pass the device" gate: shows a neutral screen, only reveals
+   real content once the named player taps through. */
+function revealGate(playerName, onProceed, opts) {
+  const label = (opts && opts.label) || `Je suis ${playerName}`;
+  openModal('🔒 Écran privé', `
+    <div class="lock-screen">
+      <div class="lock-icon">🤫</div>
+      <p><b>Passez l'iPad à ${playerName}.</b><br>Les autres joueurs détournent le regard.</p>
+    </div>`,
+    [{label: `${label}, regarder`, action: onProceed}]);
+}
+
+/* Sequentially runs perPlayerFn(player, submit) for each player in list,
+   gating each one behind a device-pass lock screen. */
+function runSequential(list, perPlayerFn, onComplete, acc) {
+  acc = acc || {};
+  if (list.length === 0) { onComplete(acc); return; }
+  const p = list[0];
+  const rest = list.slice(1);
+  revealGate(p.name, () => perPlayerFn(p, (value) => {
+    acc[p.id] = value;
+    runSequential(rest, perPlayerFn, onComplete, acc);
+  }));
+}
+
+/* ===================== SETUP ===================== */
+function loadSavedPlayers() {
+  try { return JSON.parse(localStorage.getItem('traitres_players') || '[]'); } catch(e) { return []; }
+}
+function savePlayers() {
+  try { localStorage.setItem('traitres_players', JSON.stringify(setupPlayers)); } catch(e) {}
+}
+let setupPlayers = loadSavedPlayers();
+
+function addPlayer() {
+  const inp = document.getElementById('name-input');
+  const name = inp.value.trim();
+  if (!name || setupPlayers.includes(name) || setupPlayers.length >= 8) { inp.value=''; return; }
+  setupPlayers.push(name);
+  inp.value = '';
+  renderChips();
+  savePlayers();
+  inp.focus();
+}
+document.getElementById('name-input').addEventListener('keydown', e => { if (e.key==='Enter') addPlayer(); });
+
+function removePlayer(i) { setupPlayers.splice(i,1); renderChips(); savePlayers(); }
+
+function renderChips() {
+  document.getElementById('chips-container').innerHTML =
+    setupPlayers.map((p,i) => `
+      <span class="player-chip">
+        <span class="av">${initials(p)}</span>${p}
+        <button class="chip-remove" onclick="removePlayer(${i})">×</button>
+      </span>`).join('');
+  const n = setupPlayers.length;
+  const hint = document.getElementById('player-count-hint');
+  if (n === 0) hint.textContent = "Aucun joueur ajouté pour l'instant.";
+  else if (n < 4) hint.textContent = `${n} joueur(s) ajouté(s) — encore ${4-n} de plus pour commencer.`;
+  else hint.textContent = `${n} joueur(s) ajouté(s) — prêt à commencer (max. 8).`;
+  document.getElementById('begin-round-btn').disabled = (n < 4 || n > 8);
+  document.getElementById('clear-players-row').style.display = n > 0 ? 'block' : 'none';
+}
+
+function confirmClearPlayers() {
+  openModal('Vider la liste des joueurs ?', `<p>Tous les prénoms enregistrés seront effacés. À utiliser si un nouveau groupe joue.</p>`, [
+    {label:'Oui, vider la liste', danger:true, action:()=>{ closeModal(); clearPlayers(); }},
+    {label:'Annuler', action:()=>{ closeModal(); }}
+  ]);
+}
+
+function beginRound() {
+  const n = setupPlayers.length;
+  if (n < 4 || n > 8) { document.getElementById('warn-min').classList.add('show'); return; }
+  document.getElementById('warn-min').classList.remove('show');
+  G = {
+    players: setupPlayers.map((name,i) => ({ id:i, name }))
+  };
+  startRound();
+}
+
+/* ===================== ROUND SETUP ===================== */
+function startRound() {
+  G.players.forEach(p => {
+    p.role = null;
+    p.alive = true;
+    p.hand = [];
+  });
+  G.currentIdx = 0;
+  S = { log: [], pot: [], discard: [] };
+  buildRevealStatusList();
+  show('reveal');
+}
+
+function logEvent(text) { S.log.push(text); }
+
+const CARD_ICON = { lingot:'🪙', bouclier:'🛡️', poignard:'🗡️' };
+function cardLabel(c) {
+  if (c.type==='lingot') return `Lingot d'argent (valeur ${c.value})`;
+  if (c.type==='bouclier') return 'Bouclier';
+  if (c.type==='poignard') return 'Poignard';
+  return c.type;
+}
+
+/* ===================== REVEAL SCREEN — one player at a time, no shared grid ===================== */
+function buildRevealStatusList() {
+  document.getElementById('reveal-status-list').innerHTML = G.players.map((p,idx) => `
+    <div class="player-live-row">
+      <div class="av2 unknown">${initials(p.name)}</div>
+      <div class="plr-name">${p.name}</div>
+      <div class="lock-badge" id="reveal-badge-${idx}">en attente</div>
+    </div>`).join('');
+  document.getElementById('reveal-start-btn').disabled = true;
+  document.getElementById('start-declarations-btn').disabled = false;
+}
+
+function startRoleDeclarations() {
+  document.getElementById('start-declarations-btn').disabled = true;
+  runSequential(G.players.slice(), declareRolePerPlayer, () => {
+    document.getElementById('reveal-start-btn').disabled = false;
+    toast('Tous les rôles et toutes les mains ont été déclarés.');
+  });
+}
+
+function declareRolePerPlayer(p, submit) {
+  openModal(`Quelle carte Rôle avez-vous reçue, ${p.name} ?`,
+    `<p style="color:var(--text-muted)">Regardez votre vraie carte Rôle, puis indiquez-la ici en secret.</p>`,
+    [
+      {label:"🛡️ J'ai reçu Loyal", action:()=>{ p.role=ROLE_LOYAL; closeModal(); showRoleConfirm(p, submit); }},
+      {label:"🎭 J'ai reçu Traître", danger:true, action:()=>{ p.role=ROLE_TRAITRE; closeModal(); showRoleConfirm(p, submit); }}
+    ]
+  );
+}
+
+function showRoleConfirm(p, submit) {
+  const isT = p.role===ROLE_TRAITRE;
+  const complices = G.players.filter(x=>x.role===ROLE_TRAITRE && x!==p).map(x=>x.name);
+  openModal(`Rôle enregistré — ${p.name}`,
+    `<div style="text-align:center;margin-bottom:0.8rem">
+      <div style="font-size:2.2rem">${isT?'🎭':'🛡️'}</div>
+      <strong style="color:${isT?'#ff7675':'#74b9ff'};font-family:'Cinzel',serif;font-size:1.3rem">${isT?'TRAÎTRE':'LOYAL'}</strong>
+    </div>
+    ${isT ? `<p style="color:var(--text-muted)">${complices.length?'Complices déjà déclarés : '+complices.join(', '):"Vous êtes pour l'instant le seul Traître déclaré."}</p>` : `<p style="color:var(--text-muted)">Démasquez les Traîtres avant qu'ils ne vident la cagnotte.</p>`}`,
+    [{label:"C'est bien ça, continuer", action:()=>{ closeModal(); declareHandCard(p, submit, 0); }}]
+  );
+}
+
+function declareHandCard(p, submit, count) {
+  if (count === 3) { finishPlayerDeclaration(p, submit); return; }
+  const buttons = [
+    {label:"🪙 Lingot d'argent", action:()=>declareHandLingotValue(p, submit, count)},
+    {label:'🛡️ Bouclier', action:()=>{ p.hand.push({type:'bouclier'}); declareHandCard(p, submit, count+1); }},
+    {label:'🗡️ Poignard', action:()=>{ p.hand.push({type:'poignard'}); declareHandCard(p, submit, count+1); }}
+  ];
+  if (count > 0) buttons.push({label:'◀ Erreur, corriger la carte précédente', action:()=>{ p.hand.pop(); declareHandCard(p, submit, count-1); }});
+  openModal(`${p.name} — carte ${count+1}/3 de votre main de départ`,
+    `<p style="color:var(--text-muted)">Regardez cette carte de votre main de départ et indiquez son type.</p>`,
+    buttons
+  );
+}
+
+function declareHandLingotValue(p, submit, count) {
+  openModal('Valeur du Lingot ?', `<p style="color:var(--text-muted)">Quelle valeur est indiquée sur la carte ?</p>`,
+    [1,2,3,4,5].map(v=>({label:`Valeur ${v}`, action:()=>{ p.hand.push({type:'lingot', value:v}); declareHandCard(p, submit, count+1); }})),
+    {row:true}
+  );
+}
+
+function finishPlayerDeclaration(p, submit) {
+  const idx = G.players.indexOf(p);
+  const rows = p.hand.map(c=>`<div class="hand-card"><span class="hc-icon">${CARD_ICON[c.type]}</span><span class="hc-label">${cardLabel(c)}</span></div>`).join('');
+  openModal(`Récapitulatif — ${p.name}`,
+    `<p style="color:var(--text-muted)">Votre main de départ enregistrée :</p>${rows}`,
+    [
+      {label:"C'est bon, cacher l'écran", action:()=>{
+        closeModal();
+        document.getElementById('reveal-badge-'+idx).textContent = 'déclaré';
+        document.getElementById('reveal-badge-'+idx).classList.add('seen');
+        submit(true);
+      }},
+      {label:'Une erreur ? Recommencer ma main', action:()=>{ p.hand = []; declareHandCard(p, submit, 0); }}
+    ]
+  );
+}
+
+/* ===================== TABLE SCREEN ===================== */
+function alivePlayers() { return G.players.filter(p=>p.alive); }
+
+/* Alive players reordered so the vote/poll sequence starts with `starter`
+   (the one who activated the Événement card), then continues in table order. */
+function alivePlayersFrom(starter) {
+  const alive = alivePlayers();
+  const idx = alive.findIndex(p => p.id === starter.id);
+  if (idx <= 0) return alive;
+  return [...alive.slice(idx), ...alive.slice(0, idx)];
+}
+function currentPlayer() { return G.players[G.currentIdx]; }
+function nextAliveIndex(fromIdx) {
+  let i = fromIdx;
+  do { i = (i+1) % G.players.length; } while (!G.players[i].alive);
+  return i;
+}
+
+function startTable() {
+  show('table');
+  renderTable();
+  showHowToPlay();
+}
+
+function showHowToPlay() {
+  openModal('Avant de jouer — préparez le vrai paquet',
+    `<p><b>1. Préparez le paquet physique</b> — mettez de côté la carte Traître, les 8 cartes Événement et la carte Bannissement final. Mélangez les 50 cartes restantes (Lingots, Bouclier, Poignard) : c'est dans ce paquet que vous avez déjà pris vos mains de départ.</p>
+     <p><b>2. Reconstituez la pioche</b> — remélangez la carte Traître dans le paquet restant, insérez les 8 cartes Événement à intervalles réguliers, puis placez la carte Bannissement final tout au fond de la pile. Posez le tout face cachée au centre de la table.</p>
+     <p><b>3. À chaque tour</b> (sens horaire), le joueur indiqué pioche la carte du dessus, puis vous appuyez sur "Déclarer la carte piochée" pour qu'il l'indique en secret. Il peut ensuite jouer une carte de sa main s'il le souhaite, avant de passer au joueur suivant.</p>
+     <p style="color:var(--text-muted)">Vous pouvez rouvrir ce rappel à tout moment avec le bouton "ℹ️ Rappel des règles".</p>`,
+    [{label:"Compris, on commence", action:closeModal}]
+  );
+}
+
+function renderTable() {
+  const alive = alivePlayers();
+  const potTotal = S.pot.reduce((s,c)=>s+c.value,0);
+  document.getElementById('table-alive-hint').textContent = `${alive.length} joueur(s) en vie sur ${G.players.length} · 🪙 Cagnotte : ${potTotal} lingot(s)`;
+
+  const cur = currentPlayer();
+  document.getElementById('table-players').innerHTML = G.players.map(p => {
+    const isCur = p.alive && p.id === cur.id;
+    let av = 'unknown', badge = '';
+    if (!p.alive) {
+      av = p.role===ROLE_TRAITRE ? 'traitor' : 'faithful';
+      badge = `<span class="plr-badge ${p.role===ROLE_TRAITRE?'badge-t':'badge-f'}">${p.role===ROLE_TRAITRE?'Traître':'Loyal'}</span> <span class="plr-badge badge-d">Éliminé</span>`;
+    }
+    return `<div class="player-live-row ${p.alive?'':'eliminated'}${isCur?' current':''}">
+      <div class="av2 ${av}">${initials(p.name)}</div>
+      <div>
+        <div class="plr-name">${p.name}${isCur?' 👈 à son tour':''}</div>
+        ${p.alive ? `<div class="plr-sub">${p.hand.length} carte(s) en main</div>` : ''}
+      </div>
+      ${badge}
+    </div>`;
+  }).join('');
+
+  document.getElementById('table-turn-btn').innerHTML = `<span>🔒 ${cur.name} a pioché — déclarer sa carte</span>`;
+
+  document.getElementById('table-log').innerHTML = S.log.slice().reverse().map(t=>
+    `<div class="log-entry"><span class="log-dot"></span>${t}</div>`
+  ).join('') || "<div style=\"color:var(--text-muted);font-size:0.85rem\">Aucun événement pour l'instant.</div>";
+}
+
+/* ===================== DECLARE DRAW — self-reported, one player at a time ===================== */
+function declareDraw() {
+  const p = currentPlayer();
+  revealGate(p.name, () => {
+    openModal(`${p.name} — quelle carte avez-vous piochée ?`,
+      `<p style="color:var(--text-muted)">Regardez la vraie carte que vous venez de piocher, puis indiquez son type ici, en secret.</p>`,
+      [
+        {label:"🪙 Lingot d'argent", action:()=>declareLingotValue(p)},
+        {label:'🛡️ Bouclier', action:()=>{ closeModal(); addToHand(p, {type:'bouclier'}); }},
+        {label:'🗡️ Poignard', action:()=>{ closeModal(); addToHand(p, {type:'poignard'}); }},
+        {label:'🎭 Carte Traître', danger:true, action:()=>{ closeModal(); resolveTraitreCard(p); }},
+        {label:'❔ Carte Événement', action:()=>{ closeModal(); resolveEvenement(p); }},
+        {label:'⚖️ Bannissement final', action:()=>{ closeModal(); resolveBannissement(p, true); }}
+      ]
+    );
+  });
+}
+
+function declareLingotValue(p) {
+  openModal('Valeur du Lingot piochée ?', `<p style="color:var(--text-muted)">Quelle valeur est indiquée sur la carte ?</p>`,
+    [1,2,3,4,5].map(v=>({label:`Valeur ${v}`, action:()=>{ closeModal(); addToHand(p, {type:'lingot', value:v}); }})),
+    {row:true}
+  );
+}
+
+function addToHand(p, card) {
+  p.hand.push(card);
+  handTurnOptions(p);
+}
+
+/* Step 2 (optional play) + step 3 (discard down to 3) then advance turn */
+function handTurnOptions(p) {
+  if (p.hand.length === 0) return afterHandStep(p);
+  const rows = p.hand.map((c,i) => {
+    let action = '';
+    if (c.type==='lingot') action = `<button class="hc-btn" onclick="playLingot(${p.id},${i})">Jouer dans la cagnotte</button>`;
+    else if (c.type==='poignard') action = `<button class="hc-btn" onclick="playPoignard(${p.id},${i})">Faire chanter</button>`;
+    return `<div class="hand-card"><span class="hc-icon">${CARD_ICON[c.type]}</span><span class="hc-label">${cardLabel(c)}</span>${action}
+      <button class="hc-btn" style="border-color:rgba(255,255,255,0.25);color:var(--text-muted)" onclick="voluntaryDiscard(${p.id},${i})">Défausser</button></div>`;
+  }).join('');
+  openModal(`Main de ${p.name}`,
+    `<p style="color:var(--text-muted)">Vous pouvez jouer <b>une seule</b> carte ce tour-ci (facultatif), ou simplement en défausser une si vous n'avez rien à jouer (un Lingot défaussé rejoint quand même la cagnotte).</p>${rows}`,
+    [{label:'Ne rien jouer ni défausser', action:()=>{ closeModal(); afterHandStep(p); }}]
+  );
+}
+
+function voluntaryDiscard(pid, idx) {
+  const p = G.players.find(x=>x.id===pid);
+  const [card] = p.hand.splice(idx,1);
+  if (card.type==='lingot') { S.pot.push(card); toast(`${p.name} défausse un Lingot (${card.value}) → cagnotte.`); logEvent(`${p.name} défausse un Lingot d'argent (${card.value}), qui rejoint la cagnotte.`); }
+  else { S.discard.push(card); toast(`${p.name} défausse ${cardLabel(card)}.`); logEvent(`${p.name} défausse : ${cardLabel(card)}.`); }
+  closeModal();
+  afterHandStep(p);
+}
+
+function playLingot(pid, handIdx) {
+  const p = G.players.find(x=>x.id===pid);
+  const [card] = p.hand.splice(handIdx,1);
+  S.pot.push(card);
+  toast(`${p.name} ajoute un Lingot (${card.value}) à la cagnotte.`);
+  logEvent(`${p.name} joue un Lingot d'argent (${card.value}) dans la cagnotte.`);
+  closeModal();
+  afterHandStep(p);
+}
+
+function playPoignard(pid, handIdx) {
+  const p = G.players.find(x=>x.id===pid);
+  const targets = G.players.filter(x=>x.alive && x.id!==pid);
+  if (targets.length===0) { toast('Personne à faire chanter.'); return; }
+  const [card] = p.hand.splice(handIdx,1);
+  S.discard.push(card);
+  openModal('Poignard — faire chanter',
+    `<p>Choisissez la personne à faire chanter. Vous verrez sa main et pourrez lui prendre une carte.</p>`,
+    targets.map(t=>({label:t.name, action:()=>blackmailReveal(p,t)}))
+  );
+}
+
+function blackmailReveal(p, target) {
+  if (target.hand.length===0) {
+    openModal('Chantage', `<p><b>${target.name}</b> n'a aucune carte en main.</p>`,
+      [{label:'OK', action:()=>{ closeModal(); logEvent(`${p.name} a fait chanter ${target.name} (main vide).`); afterHandStep(p); }}]);
+    return;
+  }
+  const rows = target.hand.map((c,i)=>`<div class="hand-card"><span class="hc-icon">${CARD_ICON[c.type]}</span><span class="hc-label">${cardLabel(c)}</span>
+    <button class="hc-btn" onclick="blackmailTake(${p.id},${target.id},${i})">Prendre</button></div>`).join('');
+  openModal(`Main de ${target.name} (secret)`,
+    `<p style="color:var(--text-muted)">Vous seul(e) voyez ceci. Vous pouvez prendre une carte, ou repartir les mains vides.</p>${rows}`,
+    [{label:'Ne rien prendre', action:()=>{ closeModal(); logEvent(`${p.name} a fait chanter ${target.name}.`); afterHandStep(p); }}]
+  );
+}
+
+function blackmailTake(pid, tid, idx) {
+  const p = G.players.find(x=>x.id===pid);
+  const t = G.players.find(x=>x.id===tid);
+  const [card] = t.hand.splice(idx,1);
+  p.hand.push(card);
+  logEvent(`${p.name} a fait chanter ${t.name} et lui a pris une carte.`);
+  closeModal();
+  if (card.type==='poignard') {
+    openModal('Poignard volé', `<p>La carte prise est un <b>Poignard</b>. L'utiliser tout de suite pour faire chanter à nouveau ?</p>`, [
+      {label:'Faire chanter à nouveau', action:()=>{
+        const idx2 = p.hand.findIndex(c=>c.type==='poignard');
+        p.hand.splice(idx2,1);
+        S.discard.push({type:'poignard'});
+        const targets = G.players.filter(x=>x.alive && x.id!==pid);
+        openModal('Poignard — faire chanter', `<p>Choisissez une nouvelle cible.</p>`,
+          targets.map(tg=>({label:tg.name, action:()=>blackmailReveal(p,tg)})));
+      }},
+      {label:'Garder pour plus tard', action:()=>{ closeModal(); afterHandStep(p); }}
+    ]);
+  } else {
+    afterHandStep(p);
+  }
+}
+
+function afterHandStep(p) {
+  if (p.hand.length > 3) return discardStep(p);
+  finishTurn(p);
+}
+
+function discardStep(p) {
+  const rows = p.hand.map((c,i)=>`<div class="hand-card"><span class="hc-icon">${CARD_ICON[c.type]}</span><span class="hc-label">${cardLabel(c)}</span>
+    <button class="hc-btn" onclick="discardCard(${p.id},${i})">Défausser</button></div>`).join('');
+  openModal(`${p.name} — trop de cartes`,
+    `<p style="color:var(--text-muted)">Vous devez descendre à 3 cartes en main (${p.hand.length} actuellement).</p>${rows}`,
+    []
+  );
+}
+
+function discardCard(pid, idx) {
+  const p = G.players.find(x=>x.id===pid);
+  const [card] = p.hand.splice(idx,1);
+  if (card.type==='lingot') { S.pot.push(card); toast('Lingot défaussé → cagnotte.'); }
+  else { S.discard.push(card); }
+  closeModal();
+  if (p.hand.length > 3) discardStep(p);
+  else finishTurn(p);
+}
+
+function finishTurn(p) {
+  G.currentIdx = nextAliveIndex(G.currentIdx);
+  renderTable();
+}
+
+/* Called after an Événement (nuit/assassinat/bannissement) fully resolves. */
+function continueAfterEvent(drawer, drawerEliminated) {
+  if (checkRoundEndConditions()) return;
+  G.currentIdx = nextAliveIndex(G.currentIdx);
+  renderTable();
+}
+
+function checkRoundEndConditions() {
+  const alive = alivePlayers();
+  if (alive.length <= 2) { finishRound(); return true; }
+  return false;
+}
+
+function confirmFinishRound() {
+  openModal('Terminer la partie ?', `<p>À utiliser si tout le monde est d'accord pour arrêter maintenant (par exemple si les Traîtres sont démasqués par consensus, sans passer par un vote).</p>`, [
+    {label:'Oui, terminer', danger:true, action:()=>{ closeModal(); finishRound(); }},
+    {label:'Annuler', action:()=>{ closeModal(); }}
+  ]);
+}
+
+function resolveTraitreCard(p) {
+  if (p.role === ROLE_TRAITRE) {
+    openModal('Carte Traître', `<p><b>${p.name}</b> tire la carte Traître — mais en est déjà un. Elle est défaussée sans effet.</p>`,
+      [{label:'Continuer', action:()=>{ closeModal(); handTurnOptions(p); }}]);
+    return;
+  }
+  revealGate(p.name, () => {
+    openModal('Carte Traître',
+      `<div style="text-align:center">
+        <div style="font-size:2.2rem;margin-bottom:0.4rem">🎭</div>
+        <p>Le Traître tente de recruter <b>${p.name}</b> en secret.</p>
+      </div>`,
+      [
+        {label:'Accepter — devenir Traître', danger:true, action:()=>{
+          p.role = ROLE_TRAITRE;
+          const complices = G.players.filter(x=>x.alive && x.role===ROLE_TRAITRE && x.id!==p.id).map(x=>x.name);
+          openModal('Bienvenue parmi les Traîtres',
+            `<p>Vous êtes désormais <b style="color:#ff7675">Traître</b>. Gardez-le secret.</p>
+             <p>${complices.length ? 'Vos complices en vie : <b>'+complices.join(', ')+'</b>. Trouvez un moment pour vous coordonner discrètement.' : "Aucun autre Traître n'est en vie pour le moment — vous agissez seul(e)."}</p>`,
+            [{label:"Compris, cacher l'écran", action:()=>{ closeModal(); logEvent(`${p.name} a tiré la carte Traître et a rejoint les Traîtres.`); handTurnOptions(p); }}]);
+        }},
+        {label:'Refuser', action:()=>{
+          toast(`${p.name} refuse le recrutement — la carte Traître est révélée puis écartée.`);
+          logEvent(`${p.name} a refusé la carte Traître (rejetée publiquement).`);
+          closeModal();
+          handTurnOptions(p);
+        }}
+      ]
+    );
+  });
+}
+
+/* ===================== EVENEMENT DISPATCH ===================== */
+function resolveEvenement(drawer) {
+  const roll = Math.random();
+  if (roll < 1/3) resolveNuitTranquille(drawer);
+  else if (roll < 2/3) resolveAssassinat(drawer);
+  else resolveBannissement(drawer, false);
+}
+
+function resolveNuitTranquille(drawer) {
+  openModal('🌙 Nuit tranquille', `<p>Rien ne se passe cette nuit. Le jeu continue.</p>`,
+    [{label:'Continuer', action:()=>{ closeModal(); logEvent('Nuit tranquille : rien ne se passe.'); continueAfterEvent(drawer, false); }}]);
+}
+
+/* ===================== ASSASSINAT ===================== */
+function resolveAssassinat(drawer) {
+  const votesSoFar = {}; // traitorId -> targetId | 'self'
+  runSequential(alivePlayersFrom(drawer), (p, submit) => assassinatPerPlayer(p, votesSoFar, submit), (votes) => {
+    finishAssassinat(drawer, votes);
+  });
+}
+
+/* Loyal and Traître see the exact same shape of screen: one button per player
+   in the game (fixed roster, dead or alive), plus one closing button — so the
+   number and layout of buttons never reveals who is being asked a real question.
+   For a Loyal every button is a harmless no-op. For a Traître, buttons for
+   themselves, eliminated players, and fellow Traîtres are present but disabled. */
+function assassinatPerPlayer(p, votesSoFar, submit) {
+  const isTraitre = p.role === ROLE_TRAITRE;
+
+  const priorTargets = Object.values(votesSoFar).filter(v => v !== undefined && v !== null && v !== 'self');
+  const distinctTargets = [...new Set(priorTargets)];
+  const suggestedId = distinctTargets.length === 1 ? distinctTargets[0] : null;
+
+  const rosterButtons = G.players.map(target => {
+    const isSelf = target.id === p.id;
+    const ineligible = isSelf || !target.alive || (isTraitre && target.role === ROLE_TRAITRE);
+    const suggested = isTraitre && suggestedId !== null && target.id === suggestedId;
+    const label = suggested ? `★ ${target.name}` : target.name;
+    if (!isTraitre) {
+      return { label: target.name, action: ()=>{ closeModal(); submit(null); } };
+    }
+    if (ineligible) {
+      return { label, danger: true, disabled: true };
+    }
+    return { label, danger: true, action: ()=>{ votesSoFar[p.id]=target.id; closeModal(); submit(target.id); } };
+  });
+
+  const abstainButton = isTraitre
+    ? {label:'Ne tuer personne', action:()=>{ votesSoFar[p.id]='self'; closeModal(); submit('self'); }}
+    : {label:'Ne tuer personne', action:()=>{ closeModal(); submit(null); }};
+
+  const title = isTraitre ? `${p.name} — Traître` : `${p.name} — Loyal`;
+  let info = '';
+  if (isTraitre) {
+    const complices = G.players.filter(x=>x.alive && x.role===ROLE_TRAITRE && x.id!==p.id).map(x=>x.name);
+    info += complices.length ? `<p>Complices en vie : <b>${complices.join(', ')}</b></p>` : `<p style="color:var(--text-muted)">Vous n'avez pas (encore) de complice en vie.</p>`;
+    info += `<p>Choisissez discrètement une victime, ou ne tuez personne.</p>`;
+    if (suggestedId !== null) info += `<p style="color:var(--gold)">★ = cible déjà désignée par un complice.</p>`;
+  } else {
+    info = `<p>Choisissez discrètement — votre réponse n'a aucun effet.</p>`;
+  }
+
+  openModal(title, info, [...rosterButtons, abstainButton], {minDelay:[1000,2400]});
+}
+
+function finishAssassinat(drawer, votes) {
+  const picks = Object.values(votes).filter(v => v !== null && v !== undefined && v !== 'self');
+  if (picks.length === 0) {
+    logEvent('Assassinat : les Traîtres épargnent tout le monde cette nuit.');
+    openModal('🌙 Nuit calme', `<p>Les Traîtres n'ont désigné aucune victime cette nuit.</p>`,
+      [{label:'Continuer', action:()=>{ closeModal(); continueAfterEvent(drawer, false); }}]);
+    return;
+  }
+  const counts = {};
+  picks.forEach(id => counts[id] = (counts[id]||0)+1);
+  const max = Math.max(...Object.values(counts));
+  const topTargets = Object.keys(counts).filter(id => counts[id]===max);
+  const victimId = topTargets[Math.floor(Math.random()*topTargets.length)];
+  const victim = G.players.find(x=>x.id==victimId);
+  logEvent(`Assassinat : ${victim.name} a été visé(e) dans la nuit.`);
+  openModal('🗡️ Une victime a été désignée', `<p><b>${victim.name}</b> a été visé(e) par les Traîtres cette nuit !</p>`,
+    [{label:'Révéler', action:()=>{ closeModal(); assassinatOutcome(drawer, victim); }}]);
+}
+
+function assassinatOutcome(drawer, victim) {
+  const shieldIdx = victim.hand.findIndex(c=>c.type==='bouclier');
+  if (shieldIdx === -1) {
+    eliminatePlayer(victim);
+    openModal('☠️ Élimination', `<p><b>${victim.name}</b> n'avait pas de Bouclier en main. Rôle révélé : <b style="color:${victim.role===ROLE_TRAITRE?'#ff7675':'#74b9ff'}">${victim.role===ROLE_TRAITRE?'TRAÎTRE':'LOYAL'}</b>. Ses Lingots d'argent rejoignent la cagnotte commune.</p>`,
+      [{label:'Continuer', action:()=>{ closeModal(); continueAfterEvent(drawer, victim.id===drawer.id); }}]);
+    return;
+  }
+  openModal("🛡️ Tentative d'assassinat", `<p><b>${victim.name}</b>, vous avez été visé(e) ! Vous avez un Bouclier en main : voulez-vous le jouer pour survivre ?</p>`, [
+    {label:"Oui — je joue mon Bouclier", action:()=>{
+      victim.hand.splice(shieldIdx,1);
+      S.discard.push({type:'bouclier'});
+      logEvent(`${victim.name} utilise un Bouclier et survit à l'assassinat.`);
+      closeModal();
+      toast(`${victim.name} survit grâce à son Bouclier !`);
+      continueAfterEvent(drawer, false);
+    }},
+    {label:"Non — je suis éliminé(e)", danger:true, action:()=>{
+      eliminatePlayer(victim);
+      closeModal();
+      openModal('☠️ Élimination', `<p><b>${victim.name}</b> révèle sa carte Rôle : <b style="color:${victim.role===ROLE_TRAITRE?'#ff7675':'#74b9ff'}">${victim.role===ROLE_TRAITRE?'TRAÎTRE':'LOYAL'}</b>. Ses Lingots d'argent en main rejoignent la cagnotte commune.</p>`,
+        [{label:'Continuer', action:()=>{ closeModal(); continueAfterEvent(drawer, victim.id===drawer.id); }}]);
+    }}
+  ]);
+}
+
+function eliminatePlayer(p) {
+  p.alive = false;
+  const lingots = p.hand.filter(c=>c.type==='lingot');
+  const others = p.hand.filter(c=>c.type!=='lingot');
+  S.pot.push(...lingots);
+  S.discard.push(...others);
+  p.hand = [];
+  logEvent(`${p.name} est éliminé(e) — rôle révélé : ${p.role===ROLE_TRAITRE?'Traître':'Loyal'}.`);
+}
+
+/* ===================== BANNISSEMENT ===================== */
+function resolveBannissement(drawer, isFinal) {
+  openModal(isFinal ? '⚖️ Bannissement final' : '⚖️ Bannissement',
+    `<p>Discutez ouvertement autour de la table : qui soupçonnez-vous ?</p>
+     <p style="color:var(--text-muted)">Une fois le débat terminé, lancez le vote.</p>`,
+    [{label:'Lancer le vote', action:()=>{ closeModal(); runBanVote(drawer, alivePlayersFrom(drawer), isFinal); }}]);
+}
+
+function runBanVote(drawer, candidates, isFinal) {
+  const voters = alivePlayersFrom(drawer);
+  runSequential(voters, (p, submit) => banPerPlayer(p, candidates, submit), (votes) => {
+    tallyBanVote(drawer, candidates, votes, isFinal);
+  });
+}
+
+function banPerPlayer(p, candidates, submit) {
+  const options = candidates.filter(t=>t.id!==p.id);
+  openModal(`Vote — ${p.name}`, `<p>Qui souhaitez-vous bannir ?</p>`,
+    options.map(t=>({label:t.name, action:()=>{ closeModal(); submit(t.id); }})), {minDelay:[1000,2400]});
+}
+
+function tallyBanVote(drawer, candidates, votes, isFinal) {
+  const counts = {};
+  Object.values(votes).forEach(t => counts[t]=(counts[t]||0)+1);
+  const max = Math.max(...Object.values(counts));
+  const top = Object.keys(counts).filter(id=>counts[id]===max);
+  const breakdown = Object.entries(votes).map(([voterId,targetId]) => {
+    const voter = G.players.find(x=>x.id==voterId);
+    const target = G.players.find(x=>x.id==targetId);
+    return `${voter.name} → ${target.name}`;
+  });
+  if (top.length > 1) {
+    const tiedNames = top.map(id=>G.players.find(x=>x.id==id).name).join(', ');
+    openModal('Égalité !', `<p>Votes : ${breakdown.join(' · ')}</p><p>Égalité entre <b>${tiedNames}</b>. On revote, uniquement pour ces joueurs.</p>`,
+      [{label:'Revoter', action:()=>{ closeModal(); runBanVote(drawer, top.map(id=>G.players.find(x=>x.id==id)), isFinal); }}]);
+    return;
+  }
+  const banished = G.players.find(x=>x.id==top[0]);
+  openModal('Résultat du vote', `<p>Votes : ${breakdown.join(' · ')}</p><p><b>${banished.name}</b> est banni(e) à la majorité.</p>`,
+    [{label:'Révéler son rôle', action:()=>{ closeModal(); banishOutcome(drawer, banished, isFinal); }}]);
+}
+
+function banishOutcome(drawer, banished, isFinal) {
+  eliminatePlayer(banished);
+  const wasTraitre = banished.role === ROLE_TRAITRE;
+  openModal('Bannissement', `<p><b>${banished.name}</b> était <b style="color:${wasTraitre?'#ff7675':'#74b9ff'}">${wasTraitre?'TRAÎTRE':'LOYAL'}</b> ! Ses Lingots d'argent en main rejoignent la cagnotte commune.</p>`,
+    [{label: isFinal ? 'Voir les résultats' : 'Continuer', action:()=>{
+      closeModal();
+      if (isFinal) { finishRound(); return; }
+      if (wasTraitre) {
+        openModal('Un Traître est tombé', `<p>Terminer la partie maintenant, si vous pensez que tous les Traîtres ont été éliminés ?</p>`, [
+          {label:'Oui, terminer', action:()=>{ closeModal(); finishRound(); }},
+          {label:'Non, continuer la partie', action:()=>{ closeModal(); continueAfterEvent(drawer, banished.id===drawer.id); }}
+        ]);
+      } else {
+        continueAfterEvent(drawer, banished.id===drawer.id);
+      }
+    }}]
+  );
+}
+
+/* ===================== END OF ROUND ===================== */
+function finishRound() {
+  const alive = alivePlayers();
+  const traitorsAlive = alive.filter(p=>p.role===ROLE_TRAITRE);
+  const outcomeTraitor = traitorsAlive.length > 0;
+
+  G.players.forEach(p => { p.finalScore = 0; });
+  alive.forEach(p => {
+    p.finalScore = p.hand.filter(c=>c.type==='lingot').reduce((s,c)=>s+c.value,0);
+  });
+  const potTotal = S.pot.reduce((s,c)=>s+c.value,0);
+  const winners = outcomeTraitor ? traitorsAlive : alive.filter(p=>p.role===ROLE_LOYAL);
+  if (winners.length > 0) {
+    const share = Math.floor(potTotal / winners.length);
+    winners.forEach(p => { p.finalScore += share; });
+  }
+
+  const resDiv = document.getElementById('roundend-result');
+  resDiv.className = 'result-glow ' + (outcomeTraitor ? 'result-traitor' : 'result-faithful');
+  resDiv.innerHTML = outcomeTraitor
+    ? `<div style="font-size:2.4rem;margin-bottom:0.5rem">🎭</div><h2>Il reste des Traîtres en vie !</h2><p style="color:var(--text-muted)">${traitorsAlive.map(p=>p.name).join(', ')} — ${traitorsAlive.length>1?'ils raflent':'il/elle rafle'} toute la cagnotte (${potTotal} lingot(s)).</p>`
+    : `<div style="font-size:2.4rem;margin-bottom:0.5rem">🛡️</div><h2>Tous les Traîtres ont été démasqués !</h2><p style="color:var(--text-muted)">Les Loyaux survivants se partagent équitablement la cagnotte (${potTotal} lingot(s)).</p>`;
+
+  const ranked = G.players.slice().sort((a,b)=>b.finalScore-a.finalScore);
+  document.getElementById('roundend-table').innerHTML = ranked.map((p,i) => {
+    const dead = !p.alive;
+    return `<div class="player-live-row${dead?' eliminated':''}">
+      <div class="av2 ${p.role===ROLE_TRAITRE?'traitor':'faithful'}">${i+1}</div>
+      <div>
+        <div class="plr-name">${i===0?'👑 ':''}${p.name}</div>
+        <div class="plr-sub">${dead?'Éliminé(e)':'Survivant(e)'} · ${p.finalScore} lingot(s)</div>
+      </div>
+      <span class="plr-badge ${p.role===ROLE_TRAITRE?'badge-t':'badge-f'}">${p.role===ROLE_TRAITRE?'Traître':'Loyal'}</span>
+    </div>`;
+  }).join('');
+
+  show('roundend');
+}
+
+function confirmReset() {
+  if (!G) { resetGame(); return; }
+  openModal('Réinitialiser la partie ?', `<p>La partie en cours sera perdue et tout le monde repartira de la distribution des rôles.</p>`, [
+    {label:'Oui, réinitialiser', danger:true, action:()=>{ closeModal(); resetGame(); }},
+    {label:'Annuler', action:()=>{ closeModal(); }}
+  ]);
+}
+
+function resetGame() {
+  G = null; S = null;
+  renderChips();
+  document.getElementById('warn-min').classList.remove('show');
+  show('setup');
+}
+
+function clearPlayers() {
+  setupPlayers = [];
+  savePlayers();
+  renderChips();
+}
+
+renderChips();
+</script>
+</body>
+</html>
