@@ -600,8 +600,13 @@ let setupPlayers = loadSavedPlayers();
 
 /* Persistent pool of every name ever typed, independent of the current
    game's active roster — powers the "ajout rapide" one-tap shortcuts. */
+const DEFAULT_KNOWN_NAMES = ['Ariana','David','Flavio','Inès','Jennifer','Kévan','Lana','Mila','Nicolas','Rémi','Tara'];
 function loadKnownNames() {
-  try { return JSON.parse(localStorage.getItem('traitres_known_names') || '[]'); } catch(e) { return []; }
+  try {
+    const raw = localStorage.getItem('traitres_known_names');
+    if (raw === null) return DEFAULT_KNOWN_NAMES.slice();
+    return JSON.parse(raw);
+  } catch(e) { return DEFAULT_KNOWN_NAMES.slice(); }
 }
 function saveKnownNames() {
   try { localStorage.setItem('traitres_known_names', JSON.stringify(knownNames)); } catch(e) {}
@@ -655,7 +660,7 @@ function renderChips() {
 
 function renderKnownNames() {
   const panel = document.getElementById('known-names-panel');
-  const available = knownNames.filter(n => !setupPlayers.includes(n));
+  const available = knownNames.filter(n => !setupPlayers.includes(n)).sort((a,b)=>a.localeCompare(b,'fr'));
   if (available.length === 0) { panel.style.display = 'none'; return; }
   panel.style.display = 'block';
   document.getElementById('known-names-list').innerHTML = available.map(n => `
