@@ -392,9 +392,14 @@
       <h1>Les Traîtres</h1>
       <div class="subtitle">Compagnon de jeu numérique — jeu de cartes</div>
     </div>
+    <div class="panel" id="known-names-panel" style="display:none">
+      <div class="panel-title">Ajout rapide — prénoms mémorisés</div>
+      <p class="hint" style="margin:-0.4rem 0 0.9rem">Appuyez sur un prénom pour l'ajouter directement à la partie. Le petit × l'oublie définitivement.</p>
+      <div id="known-names-list"></div>
+    </div>
     <div class="panel">
       <div class="panel-title">Étape 1 — Ajoutez les joueurs</div>
-      <p class="hint" style="margin:-0.4rem 0 0.9rem">Tapez le prénom d'un joueur, appuyez sur <b>Ajouter</b>, et recommencez pour chaque participant assis à la table (4 minimum, 8 maximum).</p>
+      <p class="hint" style="margin:-0.4rem 0 0.9rem">Tapez le prénom d'un joueur, appuyez sur <b>Ajouter</b>, et recommencez pour chaque participant assis à la table (4 minimum, 8 maximum). Chaque prénom tapé est mémorisé pour un ajout rapide la prochaine fois.</p>
       <div class="input-row">
         <input type="text" id="name-input" placeholder="Prénom du joueur…" maxlength="20" autofocus>
         <button class="btn" onclick="addPlayer()"><span>Ajouter</span></button>
@@ -593,17 +598,41 @@ function savePlayers() {
 }
 let setupPlayers = loadSavedPlayers();
 
+/* Persistent pool of every name ever typed, independent of the current
+   game's active roster — powers the "ajout rapide" one-tap shortcuts. */
+function loadKnownNames() {
+  try { return JSON.parse(localStorage.getItem('traitres_known_names') || '[]'); } catch(e) { return []; }
+}
+function saveKnownNames() {
+  try { localStorage.setItem('traitres_known_names', JSON.stringify(knownNames)); } catch(e) {}
+}
+let knownNames = loadKnownNames();
+
 function addPlayer() {
   const inp = document.getElementById('name-input');
   const name = inp.value.trim();
   if (!name || setupPlayers.includes(name) || setupPlayers.length >= 8) { inp.value=''; return; }
   setupPlayers.push(name);
+  if (!knownNames.includes(name)) { knownNames.push(name); saveKnownNames(); }
   inp.value = '';
   renderChips();
   savePlayers();
   inp.focus();
 }
 document.getElementById('name-input').addEventListener('keydown', e => { if (e.key==='Enter') addPlayer(); });
+
+function quickAddName(name) {
+  if (setupPlayers.includes(name) || setupPlayers.length >= 8) return;
+  setupPlayers.push(name);
+  renderChips();
+  savePlayers();
+}
+
+function forgetKnownName(name) {
+  knownNames = knownNames.filter(n => n !== name);
+  saveKnownNames();
+  renderChips();
+}
 
 function removePlayer(i) { setupPlayers.splice(i,1); renderChips(); savePlayers(); }
 
@@ -621,6 +650,19 @@ function renderChips() {
   else hint.textContent = `${n} joueur(s) ajouté(s) — prêt à commencer (max. 8).`;
   document.getElementById('begin-round-btn').disabled = (n < 4 || n > 8);
   document.getElementById('clear-players-row').style.display = n > 0 ? 'block' : 'none';
+  renderKnownNames();
+}
+
+function renderKnownNames() {
+  const panel = document.getElementById('known-names-panel');
+  const available = knownNames.filter(n => !setupPlayers.includes(n));
+  if (available.length === 0) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  document.getElementById('known-names-list').innerHTML = available.map(n => `
+    <span class="player-chip" style="cursor:pointer" onclick="quickAddName('${n.replace(/'/g,"\\'")}')">
+      <span class="av">${initials(n)}</span>${n}
+      <button class="chip-remove" onclick="event.stopPropagation();forgetKnownName('${n.replace(/'/g,"\\'")}')" title="Oublier ce prénom">×</button>
+    </span>`).join('');
 }
 
 function confirmClearPlayers() {
